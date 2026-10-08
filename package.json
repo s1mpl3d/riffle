@@ -36,13 +36,13 @@
     "tone": "^15.1.22"
   },
   "productName": "Riffle",
-  "homepage": "https://github.com/s1mpl3d/riffle-releases",
+  "homepage": "https://github.com/s1mpl3d/riffle",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/s1mpl3d/riffle.git"
   },
   "bugs": {
-    "url": "https://github.com/s1mpl3d/riffle-releases/issues"
+    "url": "https://github.com/s1mpl3d/riffle/issues"
   },
   "build": {
     "appId": "io.github.s1mpl3d.riffle",
@@ -91,7 +91,7 @@
       {
         "provider": "github",
         "owner": "s1mpl3d",
-        "repo": "riffle-releases",
+        "repo": "riffle",
         "releaseType": "release"
       }
     ]

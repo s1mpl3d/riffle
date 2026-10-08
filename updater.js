@@ -16,7 +16,7 @@ function writeIgnored(file, version) {
 function initUpdater(getWindow) {
   const ignoreFile = path.join(app.getPath('userData'), 'ignored-update.json');
   const pkg = require('./package.json');
-  const releasesUrl = `${pkg.homepage || 'https://github.com/s1mpl3d/riffle-releases'}/releases`;
+  const releasesUrl = `${pkg.homepage || 'https://github.com/s1mpl3d/riffle'}/releases`;
   let manualCheck = false;
   let installNow = false;
   let current = null;

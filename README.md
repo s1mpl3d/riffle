@@ -8,7 +8,7 @@ Riffle is a desktop music player for Windows and Linux. It plays music from YouT
 
 The interface follows Material Design 3 (You), and the player stays focused on the music.
 
-Downloads: [riffle-releases](https://github.com/s1mpl3d/riffle-releases/releases/latest)
+Downloads: [latest release](https://github.com/s1mpl3d/riffle/releases/latest)
 
 Riffle is a fork of [Riff](https://github.com/rootscripts/riff) by rootless, with extra playback features on top.
 
@@ -97,7 +97,7 @@ npm run dist
 
 The installer (Windows) or AppImage (Linux) is written to `dist/`.
 
-Pushing a `v*` tag runs the release workflow, which builds both platforms and publishes them to [riffle-releases](https://github.com/s1mpl3d/riffle-releases). The workflow needs a `RELEASES_TOKEN` secret: a fine-grained token with Contents read/write on that repo. Installed copies pick up new releases through the built-in updater.
+Pushing a `v*` tag runs the release workflow, which builds both platforms and attaches them to a GitHub release. Installed copies pick up new releases through the built-in updater.
 
 ### Environment variables
 
