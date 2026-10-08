@@ -436,7 +436,10 @@ window.RIFFLE_LOCALE = {
   "Ignore": "Ignorar",
   "Open release page": "Abrir página da versão",
   "Riffle {version} is available": "Riffle {version} disponível",
-  "Update downloaded. It will install when you quit Riffle.": "Atualização baixada. Ela será instalada quando você fechar o Riffle.",
+  "A new version is downloading in the background": "Uma nova versão está sendo baixada em segundo plano",
+  "Riffle {version} is ready. It installs when you quit, or restart now.": "O Riffle {version} está pronto. Ele será instalado quando você fechar o app, ou reinicie agora.",
+  "Restart now": "Reiniciar agora",
+  "Later": "Depois",
   "Update failed": "Falha na atualização",
   "You are up to date": "Você está com a versão mais recente",
   "Version {version}": "Versão {version}"

@@ -5389,6 +5389,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const languageLabel = document.getElementById('language-trigger-label');
   const languageMenu = document.getElementById('language-menu');
   if (window.i18n && languageDropdown && languageTrigger && languageMenu) {
+    // one option per file in locales/, named in its own language
+    for (const [code, name] of Object.entries(window.i18n.languages)) {
+      const opt = document.createElement('button');
+      opt.className = 'm3-dropdown-option';
+      opt.type = 'button';
+      opt.dataset.value = code;
+      opt.textContent = name;
+      languageMenu.appendChild(opt);
+    }
     const currentPref = window.i18n.preference();
     languageMenu.querySelectorAll('.m3-dropdown-option').forEach(opt => {
       const selected = opt.dataset.value === currentPref;
@@ -6739,13 +6748,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.electronAPI.onUpdateProgress) {
       window.electronAPI.onUpdateProgress((p) => {
         if (activeUpdateToast) activeUpdateToast.setText(tr('Downloading update {pct}%', { pct: p.percent }));
+        else showToast(tr('A new version is downloading in the background'));
       });
     }
 
     if (window.electronAPI.onUpdateReady) {
-      window.electronAPI.onUpdateReady(() => {
+      window.electronAPI.onUpdateReady((d) => {
         if (activeUpdateToast) activeUpdateToast.close();
-        showToast(tr('Update downloaded. It will install when you quit Riffle.'));
+        activeUpdateToast = showToast(tr('Riffle {version} is ready. It installs when you quit, or restart now.', { version: (d && d.version) || '' }), 'info', {
+          persistent: true,
+          actions: [
+            { label: tr('Restart now'), primary: true, onClick: () => window.electronAPI.updateAction('restart') },
+            { label: tr('Later'), primary: false, onClick: () => { if (activeUpdateToast) activeUpdateToast.close(); } }
+          ]
+        });
       });
     }
 

@@ -2,7 +2,21 @@
 // language is a file in locales/ that maps the English text to its own. Only the
 // active language is loaded, so English costs nothing and others cost one small file.
 (function () {
-  const LANGUAGES = { 'pt-BR': 'Português (Brasil)' };
+  // each one is a file in locales/, named here in its own language; a system language
+  // that isn't listed falls back to one with the same base ('pt-PT' -> 'pt-BR'), then English
+  const LANGUAGES = {
+    'de': 'Deutsch',
+    'es': 'Español',
+    'fr': 'Français',
+    'it': 'Italiano',
+    'pl': 'Polski',
+    'pt-BR': 'Português (Brasil)',
+    'tr': 'Türkçe',
+    'ru': 'Русский',
+    'ja': '日本語',
+    'ko': '한국어',
+    'zh-CN': '简体中文'
+  };
   const STORAGE_KEY = 'riffle_language';
   const ATTRS = ['title', 'placeholder', 'aria-label', 'alt'];
   let dict = null;

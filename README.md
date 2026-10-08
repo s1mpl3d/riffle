@@ -68,6 +68,14 @@ Spotify audio is not streamed: Riffle reads the track info and plays the matchin
 
 Shows the current track, artist and progress on Discord.
 
+### Languages
+
+The interface follows the system language: English, Deutsch, Español, Français, Italiano, Polski, Português (Brasil), Türkçe, Русский, 日本語, 한국어 and 简体中文. It can also be picked in Settings > Appearance.
+
+### Updates
+
+New versions download in the background and install the next time Riffle quits, with an option to restart right away. On Linux this needs the AppImage; other installs get a link to the release instead.
+
 ## Coming from Riff
 
 On the first start, Riffle imports your settings, playlists, library and custom lyrics from an existing Riff installation. The old folders are only copied, never changed.
@@ -98,6 +106,10 @@ npm run dist
 The installer (Windows) or AppImage (Linux) is written to `dist/`.
 
 Pushing a `v*` tag runs the release workflow, which builds both platforms and attaches them to a GitHub release. Installed copies pick up new releases through the built-in updater.
+
+### Translations
+
+Each language is a file in `locales/` that maps the English text of the interface to its own. `node scripts/i18n-check.js` lists what a locale is missing; `--keys` prints every string to translate. A new language also needs an entry in `LANGUAGES` in `i18n.js`.
 
 ### Environment variables
 

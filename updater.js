@@ -37,10 +37,11 @@ function initUpdater(getWindow) {
     autoUpdater.forceDevUpdateConfig = true;
     autoUpdater.currentVersion = pkg.version || '1.0.0';
   }
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-
+  // where the app can update itself, new versions download in the background and
+  // install when Riffle quits; elsewhere (Linux without AppImage) the user gets a link
   const canInstall = process.platform !== 'linux' || !!process.env.APPIMAGE;
+  autoUpdater.autoDownload = canInstall;
+  autoUpdater.autoInstallOnAppQuit = canInstall;
   const send = (channel, payload) => {
     const win = getWindow();
     if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
@@ -48,6 +49,12 @@ function initUpdater(getWindow) {
 
   autoUpdater.on('update-available', (info) => {
     current = info;
+    if (canInstall) {
+      // downloading on its own; a manual check still gets told something is coming
+      if (manualCheck) send('update-progress', { percent: 0 });
+      manualCheck = false;
+      return;
+    }
     const ignored = readIgnored(ignoreFile) === info.version;
     if (ignored && !manualCheck) return;
     manualCheck = false;
@@ -59,11 +66,11 @@ function initUpdater(getWindow) {
     manualCheck = false;
   });
 
-  autoUpdater.on('download-progress', (p) => send('update-progress', { percent: Math.round(p.percent) }));
+  autoUpdater.on('download-progress', (p) => { if (installNow) send('update-progress', { percent: Math.round(p.percent) }); });
 
-  autoUpdater.on('update-downloaded', () => {
+  autoUpdater.on('update-downloaded', (info) => {
     if (installNow) autoUpdater.quitAndInstall();
-    else send('update-ready', { version: current && current.version });
+    else send('update-ready', { version: (info && info.version) || (current && current.version) });
   });
 
   autoUpdater.on('error', (err) => {
@@ -85,7 +92,9 @@ function initUpdater(getWindow) {
       return;
     }
     if (!canInstall) return;
-    if (action === 'now') {
+    if (action === 'restart') {
+      autoUpdater.quitAndInstall();
+    } else if (action === 'now') {
       installNow = true;
       autoUpdater.downloadUpdate().catch(() => {});
     } else if (action === 'later') {

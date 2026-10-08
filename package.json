@@ -31,9 +31,7 @@
   "dependencies": {
     "cfonts": "^3.3.1",
     "discord-rpc": "^4.0.1",
-    "electron-updater": "^6.8.9",
-    "hls.js": "^1.7.1",
-    "tone": "^15.1.22"
+    "electron-updater": "^6.8.9"
   },
   "productName": "Riffle",
   "homepage": "https://github.com/s1mpl3d/riffle",
@@ -56,6 +54,7 @@
       "!.github/**",
       "!dist/**",
       "!bin/**",
+      "!scripts/**",
       "!*.md",
       "!package-lock.json"
     ],
