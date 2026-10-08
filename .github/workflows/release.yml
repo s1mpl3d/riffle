@@ -16,7 +16,11 @@ jobs:
       - name: Create release if missing
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Riffle $GITHUB_REF_NAME" --generate-notes
+        run: |
+          # tags like v1.0.0-beta are published as pre-releases
+          pre=""
+          case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Riffle $GITHUB_REF_NAME" --generate-notes $pre
 
   build:
     needs: create-release
@@ -43,4 +47,5 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_PRE_RELEASE: ${{ contains(github.ref_name, '-') }}
         run: npx electron-builder ${{ matrix.flag }} --publish always
