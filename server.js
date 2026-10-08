@@ -1676,6 +1676,14 @@ async function radioTracks(seed, limit = 15) {
 // search box autocomplete: YouTube's public suggestion endpoint, cached per query
 const suggestCache = new Map();
 
+// suggestion language follows the system locale, otherwise Google guesses it from the IP
+function suggestLang() {
+  let locale = '';
+  try { locale = require('electron').app.getLocale(); } catch (e) {}
+  if (!locale) { try { locale = Intl.DateTimeFormat().resolvedOptions().locale; } catch (e) {} }
+  return locale || 'en';
+}
+
 async function fetchSuggestions(query) {
   const q = String(query || '').trim().toLowerCase();
   if (!q || q.length > 120 || /^https?:\/\//i.test(q)) return [];
@@ -1683,7 +1691,7 @@ async function fetchSuggestions(query) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 3500);
   try {
-    const res = await fetch(`https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(q)}`, { signal: controller.signal });
+    const res = await fetch(`https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&hl=${encodeURIComponent(suggestLang())}&q=${encodeURIComponent(q)}`, { signal: controller.signal });
     const data = await res.json();
     const list = Array.isArray(data && data[1]) ? data[1].filter(s => typeof s === 'string').slice(0, 8) : [];
     if (suggestCache.size > 300) suggestCache.clear();
