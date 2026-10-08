@@ -1,0 +1,48 @@
+name: Release
+
+# builds run here (private); installers are published to the public releases repo
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  RELEASES_REPO: s1mpl3d/riffle-releases
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create release if missing
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$RELEASES_REPO" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --repo "$RELEASES_REPO" --title "Riffle $GITHUB_REF_NAME" --notes ""
+
+  build:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            flag: --win
+          - os: ubuntu-latest
+            flag: --linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Set version from tag
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+      - run: npm ci
+      - name: Build and upload to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: npx electron-builder ${{ matrix.flag }} --publish always

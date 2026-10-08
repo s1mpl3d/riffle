@@ -1,0 +1,99 @@
+{
+  "name": "riffle",
+  "version": "1.0.0",
+  "main": "main.js",
+  "bin": {
+    "riffle": "./cli.js"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dist": "electron-builder",
+    "release": "npm version patch && git push --follow-tags",
+    "release:minor": "npm version minor && git push --follow-tags",
+    "release:major": "npm version major && git push --follow-tags"
+  },
+  "keywords": [
+    "music",
+    "player",
+    "electron",
+    "youtube",
+    "soundcloud",
+    "lyrics"
+  ],
+  "author": "s1mpl3d",
+  "license": "MIT",
+  "description": "Riffle - a desktop music player for Windows and Linux.",
+  "devDependencies": {
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "cfonts": "^3.3.1",
+    "discord-rpc": "^4.0.1",
+    "electron-updater": "^6.8.9",
+    "hls.js": "^1.7.1",
+    "tone": "^15.1.22"
+  },
+  "productName": "Riffle",
+  "homepage": "https://github.com/s1mpl3d/riffle-releases",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/s1mpl3d/riffle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/s1mpl3d/riffle-releases/issues"
+  },
+  "build": {
+    "appId": "io.github.s1mpl3d.riffle",
+    "productName": "Riffle",
+    "artifactName": "${name}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!.github/**",
+      "!dist/**",
+      "!bin/**",
+      "!*.md",
+      "!package-lock.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "AudioVideo"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "s1mpl3d",
+        "repo": "riffle-releases",
+        "releaseType": "release"
+      }
+    ]
+  }
+}
