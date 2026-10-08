@@ -1,5 +1,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
+  const tr = (text) => (window.i18n ? window.i18n.t(text) : text);
   const ui = {
     mini: $('mini'),
     cover: $('cover'),
@@ -71,7 +72,7 @@
     snapshot = { ...snapshot, ...info };
     receivedAt = performance.now();
     document.body.classList.toggle('paused', !snapshot.isPlaying);
-    setTitle(snapshot.title || 'Nothing playing');
+    setTitle(snapshot.title || tr('Nothing playing'));
     ui.artist.textContent = snapshot.artist || 'Riffle';
     ui.fav.classList.toggle('active', Boolean(snapshot.isFavorite));
     setThumbnail(snapshot.thumbnail || '');
@@ -79,7 +80,7 @@
     if (snapshot.accent) root.setProperty('--accent', snapshot.accent);
     if (snapshot.onAccent) root.setProperty('--on-accent', snapshot.onAccent);
     if (snapshot.surface) root.setProperty('--surface', snapshot.surface);
-    document.title = snapshot.title ? `${snapshot.title} · Riffle` : 'Riffle mini player';
+    document.title = snapshot.title ? `${snapshot.title} · Riffle` : tr('Riffle mini player');
   }
 
   function tick() {

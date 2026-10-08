@@ -11,6 +11,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (e) {}
 
+  // translations: wait until the static markup is translated, then use tr() for text set from code
+  if (window.i18n) await window.i18n.ready;
+  const tr = window.i18n ? window.i18n.t : (s => s);
+  const trn = (n, one, many, vars) => tr(n === 1 ? one : many, Object.assign({ n }, vars));
+
   const LiquidMotion = {
     setAnchor(element, triggerEl, axis = 'x') {
       if (!element) return;
@@ -410,8 +415,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     window.electronAPI.discordRpcUpdate({
-      title: track.title || 'Unknown Track',
-      artist: track.artist || 'Unknown Artist',
+      title: track.title || tr('Unknown Track'),
+      artist: track.artist || tr('Unknown Artist'),
       duration: track.duration || 0,
       thumbnail: track.thumbnail || '',
       url: track.url || '',
@@ -439,8 +444,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateMediaSession() {
     if ('mediaSession' in navigator && state.currentTrack) {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: state.currentTrack.title || 'Untitled',
-        artist: state.currentTrack.artist || 'Unknown Artist',
+        title: state.currentTrack.title || tr('Untitled'),
+        artist: state.currentTrack.artist || tr('Unknown Artist'),
         artwork: state.currentTrack.thumbnail ? [{ src: state.currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' }] : []
       });
     }
@@ -500,7 +505,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const PALETTE_STYLES = {
     classic: {
-      label: 'Classic',
+      label: tr('Classic'),
       secHueShift: 0,
       tertHueShift: 0,
       priSatScale: 1.0,
@@ -508,7 +513,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       contSatScale: 1.0
     },
     'tonal-spot': {
-      label: 'Tonal spot',
+      label: tr('Tonal spot'),
       secHueShift: 0,
       tertHueShift: 60,
       priSatScale: 1.0,
@@ -516,7 +521,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       contSatScale: 0.9
     },
     expressive: {
-      label: 'Expressive',
+      label: tr('Expressive'),
       secHueShift: 60,
       tertHueShift: 120,
       priSatScale: 1.25,
@@ -524,7 +529,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       contSatScale: 1.3
     },
     vibrant: {
-      label: 'Vibrant',
+      label: tr('Vibrant'),
       secHueShift: 0,
       tertHueShift: 60,
       priSatScale: 1.4,
@@ -532,7 +537,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       contSatScale: 1.4
     },
     neutral: {
-      label: 'Neutral',
+      label: tr('Neutral'),
       secHueShift: 0,
       tertHueShift: 0,
       priSatScale: 0.35,
@@ -1242,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const savedRadius = localStorage.getItem('riffle_corner_radius') || '16';
   if (el.sliderCornerRadius) el.sliderCornerRadius.value = savedRadius;
-  if (el.valCornerRadius) el.valCornerRadius.textContent = savedRadius === '16' ? 'Default' : `${savedRadius}px`;
+  if (el.valCornerRadius) el.valCornerRadius.textContent = savedRadius === '16' ? tr('Default') : `${savedRadius}px`;
   document.documentElement.style.setProperty('--md-shape-corner-l', `${savedRadius}px`);
   document.documentElement.style.setProperty('--md-shape-corner-m', `${Math.max(0, parseInt(savedRadius) - 4)}px`);
 
@@ -1303,7 +1308,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         railDrawer.classList.remove('hidden');
         if (sectionPresets) sectionPresets.style.display = isPresets ? 'flex' : 'none';
         if (sectionPlaylists) sectionPlaylists.style.display = isPresets ? 'none' : 'flex';
-        if (drawerTitle) drawerTitle.textContent = isPresets ? 'Presets' : 'Playlists';
+        if (drawerTitle) drawerTitle.textContent = isPresets ? tr('Presets') : tr('Playlists');
         if (el.btnSavePresetDialog) el.btnSavePresetDialog.style.display = isPresets ? 'inline-flex' : 'none';
         if (el.btnNewPlaylist) el.btnNewPlaylist.style.display = isPresets ? 'none' : 'inline-flex';
         if (sidebarEl) sidebarEl.classList.add('has-drawer-open');
@@ -1319,7 +1324,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             outgoing.style.display = 'none';
             outgoing.classList.remove('section-switching-out');
           }
-          if (drawerTitle) drawerTitle.textContent = isPresets ? 'Presets' : 'Playlists';
+          if (drawerTitle) drawerTitle.textContent = isPresets ? tr('Presets') : tr('Playlists');
           railDrawer.classList.toggle('drawer-presets-mode', isPresets);
           if (el.btnSavePresetDialog) el.btnSavePresetDialog.style.display = isPresets ? 'inline-flex' : 'none';
           if (el.btnNewPlaylist) el.btnNewPlaylist.style.display = isPresets ? 'none' : 'inline-flex';
@@ -1400,8 +1405,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (el.btnConfirmRenameTrack) {
     el.btnConfirmRenameTrack.addEventListener('click', () => {
-      const newTitle = el.inputRenameTitle ? el.inputRenameTitle.value.trim() || 'Untitled track' : 'Untitled track';
-      const newArtist = el.inputRenameArtist ? el.inputRenameArtist.value.trim() || 'Unknown artist' : 'Unknown artist';
+      const newTitle = el.inputRenameTitle ? el.inputRenameTitle.value.trim() || tr('Untitled track') : tr('Untitled track');
+      const newArtist = el.inputRenameArtist ? el.inputRenameArtist.value.trim() || tr('Unknown artist') : tr('Unknown artist');
 
       if (state.currentTrack) {
         state.currentTrack.title = newTitle;
@@ -1431,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateMediaSession();
 
       if (el.renameTrackModal) closeModal(el.renameTrackModal);
-      showToast('Track info updated', 'info');
+      showToast(tr('Track info updated'), 'info');
     });
   }
 
@@ -1585,7 +1590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     if (isSameTrack(track, state.currentTrack)) {
-      showToast('Already playing');
+      showToast(tr('Already playing'));
       return;
     }
     const existing = state.queue.findIndex((t, i) => i !== state.queueIndex && isSameTrack(t, track));
@@ -1599,9 +1604,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.playNextPending++;
     updateQueueBadge();
     if (state.currentView === 'queue') renderQueueView();
-    showToast(`Playing next: ${track.title || 'untitled'}`);
+    showToast(tr('Playing next: {title}', { title: track.title || tr('untitled') }));
     saveSession();
   }
+
+  const TRAY_LABELS = window.i18n && window.i18n.lang !== 'en' ? {
+    play: tr('Play'), pause: tr('Pause'), next: tr('Next'), previous: tr('Previous'),
+    mini: tr('Mini player'), closeMini: tr('Close mini player'), show: tr('Show Riffle'), quit: tr('Quit')
+  } : null;
 
   function sendTrayState() {
     if (!window.electronAPI || !window.electronAPI.trayUpdate) return;
@@ -1609,7 +1619,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.electronAPI.trayUpdate({
       title: t ? t.title || '' : '',
       artist: t ? t.artist || '' : '',
-      isPlaying: Boolean(el.nativeAudio && !el.nativeAudio.paused)
+      isPlaying: Boolean(el.nativeAudio && !el.nativeAudio.paused),
+      labels: TRAY_LABELS
     });
   }
   // loudness normalization: the server measures each file once; unmeasured tracks play at 0 dB
@@ -1629,9 +1640,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     audioEngine.setNormalizationGain(db, rampSec);
     const readout = document.getElementById('normalize-readout');
     if (!readout) return;
-    if (!state.normalizeVolume) readout.textContent = 'Off: every song plays at its original level';
-    else if (!loudness.info) readout.textContent = loudness.source ? 'Measuring this song…' : 'Evens out loud and quiet songs';
-    else readout.textContent = `This song: ${loudness.info.lufs.toFixed(1)} LUFS · ${db >= 0 ? '+' : '−'}${Math.abs(db).toFixed(1)} dB`;
+    if (!state.normalizeVolume) readout.textContent = tr('Off: every song plays at its original level');
+    else if (!loudness.info) readout.textContent = loudness.source ? tr('Measuring this song…') : tr('Evens out loud and quiet songs');
+    else readout.textContent = tr('This song: {value}', { value: `${loudness.info.lufs.toFixed(1)} LUFS · ${db >= 0 ? '+' : '−'}${Math.abs(db).toFixed(1)} dB` });
   }
 
   async function loadTrackLoudness(source, loadToken) {
@@ -1689,7 +1700,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       state.queue.push(...fresh);
       updateQueueBadge();
       if (state.currentView === 'queue') renderQueueView();
-      if (announce) showToast(`Autoplay: ${fresh.length} similar songs added`);
+      if (announce) showToast(trn(fresh.length, 'Autoplay: {n} similar song added', 'Autoplay: {n} similar songs added'));
       return true;
     } catch (e) {
       return false;
@@ -2023,7 +2034,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const isEnabled = v[item.key];
 
       if (card) card.classList.toggle('enabled', !!isEnabled);
-      if (badge) badge.textContent = isEnabled ? 'on' : 'off';
+      if (badge) badge.textContent = isEnabled ? tr('on') : tr('off');
       if (btn) {
         btn.classList.toggle('active', !!isEnabled);
         
@@ -2057,9 +2068,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function updateNowPlayingUI(track) {
-    if (el.playbarTitle) el.playbarTitle.textContent = track.title || 'Untitled';
+    if (el.playbarTitle) el.playbarTitle.textContent = track.title || tr('Untitled');
     if (el.playbarTitle) el.playbarTitle.dataset.origTitle = track.title || '';
-    if (el.playbarArtist) el.playbarArtist.textContent = track.artist || 'Unknown artist';
+    if (el.playbarArtist) el.playbarArtist.textContent = track.artist || tr('Unknown artist');
 
     if (track.thumbnail) {
       if (el.playbarArtwork) {
@@ -2079,8 +2090,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (el.rightPanelFallback) el.rightPanelFallback.style.display = 'flex';
     }
 
-    if (el.rightPanelTitle) el.rightPanelTitle.textContent = track.title || 'Untitled';
-    if (el.rightPanelArtist) el.rightPanelArtist.textContent = track.artist || 'Unknown artist';
+    if (el.rightPanelTitle) el.rightPanelTitle.textContent = track.title || tr('Untitled');
+    if (el.rightPanelArtist) el.rightPanelArtist.textContent = track.artist || tr('Unknown artist');
 
     updateRightPanelBanner(track.thumbnail);
     updateFavoriteIcon();
@@ -2189,8 +2200,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     scrubProgress = 0;
 
     if (el.trackLoadingOverlay) {
-      if (el.trackLoadingTitle) el.trackLoadingTitle.textContent = track.title || 'loading track...';
-      if (el.trackLoadingSub) el.trackLoadingSub.textContent = track.artist ? `${track.artist} • buffering stream` : 'buffering audio stream';
+      if (el.trackLoadingTitle) el.trackLoadingTitle.textContent = track.title || tr('loading track...');
+      if (el.trackLoadingSub) el.trackLoadingSub.textContent = track.artist ? tr('{artist} • buffering stream', { artist: track.artist }) : tr('buffering audio stream');
       el.trackLoadingOverlay.classList.remove('hidden');
     }
 
@@ -2264,7 +2275,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (!data && !navigator.onLine) {
-        showToast('Offline: this track is not available in local cache');
+        showToast(tr('Offline: this track is not available in local cache'));
         throw new Error('Offline: track not cached locally');
       }
 
@@ -2297,7 +2308,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (currentToken !== state.loadToken) return;
 
-      if (!data.success || !data.streamUrl) throw new Error(data.error || 'Failed to extract audio stream');
+      if (!data.success || !data.streamUrl) throw new Error(data.error || tr('Failed to extract audio stream'));
 
       if (hlsInstance) {
         hlsInstance.destroy();
@@ -2338,7 +2349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Track playback notice:', err);
         updatePlayPauseButton(false, false);
         if (el.trackLoadingOverlay) el.trackLoadingOverlay.classList.add('hidden');
-        showToast(err.message || 'Could not load audio stream', 'error');
+        showToast(err.message || tr('Could not load audio stream'), 'error');
       }
     }
   }
@@ -2476,7 +2487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       state.syncedLyrics = parsed;
       const hasSyncTimes = parsed.some(p => p.time >= 0);
-      if (el.lyricsStatus) el.lyricsStatus.textContent = data.isCustom ? (hasSyncTimes ? 'Custom synced' : 'Custom') : (hasSyncTimes ? 'Synced' : 'Plain');
+      if (el.lyricsStatus) el.lyricsStatus.textContent = data.isCustom ? (hasSyncTimes ? tr('Custom synced') : tr('Custom')) : (hasSyncTimes ? tr('Synced') : tr('Plain'));
       renderLyricsView();
       setLyricsEmpty(false);
       if (el.lyricsContainer) {
@@ -2647,7 +2658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!isWordEnabled && state.lyricsMode === 'word') {
       state.lyricsMode = 'line';
     }
-    const label = state.lyricsMode === 'word' ? 'Word' : 'Line';
+    const label = state.lyricsMode === 'word' ? tr('Word') : tr('Line');
     el.btnLyricsMode.querySelector('span').textContent = label;
   }
 
@@ -2668,10 +2679,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function openCustomLyricsEditor() {
     if (!state.currentTrack) {
-      showToast('Play a track first to add lyrics', 'info');
+      showToast(tr('Play a track first to add lyrics'), 'info');
       return;
     }
-    if (el.customLyricsTrackTitle) el.customLyricsTrackTitle.textContent = (state.currentTrack.title || 'untitled');
+    if (el.customLyricsTrackTitle) el.customLyricsTrackTitle.textContent = (state.currentTrack.title || tr('untitled'));
     if (el.customLyricsTrackArtist) el.customLyricsTrackArtist.textContent = (state.currentTrack.artist || '');
 
     if (state.syncedLyrics.length > 0) {
@@ -2693,7 +2704,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!state.currentTrack || !el.customLyricsTextarea) return;
     const text = el.customLyricsTextarea.value.trim();
     if (!text) {
-      showToast('Please enter some lyrics first', 'info');
+      showToast(tr('Please enter some lyrics first'), 'info');
       return;
     }
 
@@ -2710,13 +2721,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                               }
       );
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Save failed');
+      if (!data.success) throw new Error(data.error || tr('Save failed'));
 
-      showToast('Lyrics saved successfully', 'info');
+      showToast(tr('Lyrics saved successfully'), 'info');
       closeCustomLyricsEditor();
       loadSyncedLyrics(title, artist, state.loadToken);
     } catch (e) {
-      showToast('Failed to save lyrics: ' + e.message, 'error');
+      showToast(tr('Failed to save lyrics: {error}', { error: e.message }), 'error');
     }
   }
 
@@ -2739,12 +2750,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function openSyncMode() {
     if (!state.currentTrack) {
-      showToast('Play a track first to sync lyrics', 'info');
+      showToast(tr('Play a track first to sync lyrics'), 'info');
       return;
     }
 
     if (state.syncedLyrics.length === 0) {
-      showToast('Add lyrics first using the edit button, then sync them', 'info');
+      showToast(tr('Add lyrics first using the edit button, then sync them'), 'info');
       return;
     }
 
@@ -2759,13 +2770,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       el.nativeAudio.play().catch(() => {});
     }
 
-    showToast('Press play, then click or tap each line when you hear it', 'info');
+    showToast(tr('Press play, then click or tap each line when you hear it'), 'info');
   }
 
   function updateSyncProgress() {
     const synced = syncState.lines.filter(l => l.time !== null).length;
     const total = syncState.lines.length;
-    if (el.syncProgressText) el.syncProgressText.textContent = `${synced} / ${total} lines synced`;
+    if (el.syncProgressText) el.syncProgressText.textContent = tr('{synced} / {total} lines synced', { synced, total });
   }
 
   function renderSyncLines() {
@@ -2822,7 +2833,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncState.currentIndex = 0;
     if (el.nativeAudio) el.nativeAudio.currentTime = 0;
     renderSyncLines();
-    showToast('Sync restarted', 'info');
+    showToast(tr('Sync restarted'), 'info');
   }
 
   async function saveSyncAndExit() {
@@ -2851,13 +2862,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                               }
       );
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Save failed');
+      if (!data.success) throw new Error(data.error || tr('Save failed'));
 
-      showToast('Synced lyrics saved', 'info');
+      showToast(tr('Synced lyrics saved'), 'info');
       closeSyncMode();
       loadSyncedLyrics(title, artist, state.loadToken);
     } catch (e) {
-      showToast('Failed to save synced lyrics: ' + e.message, 'error');
+      showToast(tr('Failed to save synced lyrics: {error}', { error: e.message }), 'error');
     }
   }
 
@@ -3090,13 +3101,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       chip.dataset.presetId = p.id;
 
       chip.innerHTML = `
-      <span class="preset-name-label">${p.name}</span>
+      <span class="preset-name-label">${isCustom ? p.name : tr(p.name)}</span>
       ${isCustom ? `
         <div class="preset-actions">
-          <button type="button" class="preset-btn-action btn-rename-p" title="Rename" aria-label="Rename preset">
+          <button type="button" class="preset-btn-action btn-rename-p" title="${tr('Rename')}" aria-label="${tr('Rename preset')}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
           </button>
-          <button type="button" class="preset-btn-action btn-delete-p" title="Delete" aria-label="Delete preset">
+          <button type="button" class="preset-btn-action btn-delete-p" title="${tr('Delete')}" aria-label="${tr('Delete preset')}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>` : ''}
@@ -3179,7 +3190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function openDeletePresetConfirm(preset) {
     state.presetToDeleteId = preset.id;
     const msg = document.getElementById('delete-preset-msg');
-    if (msg) msg.textContent = `Delete preset "${preset.name}"?`;
+    if (msg) msg.textContent = tr('Delete preset "{name}"?', { name: preset.name });
     const modal = document.getElementById('delete-preset-modal');
     if (modal) openModal(modal);
   }
@@ -3198,9 +3209,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (el.discoverEmpty) el.discoverEmpty.classList.add('hidden');
     if (el.searchResultsContainer) el.searchResultsContainer.classList.remove('hidden');
-    if (el.resultsTitle) el.resultsTitle.textContent = `Results for "${state.searchQuery}"`;
+    if (el.resultsTitle) el.resultsTitle.textContent = tr('Results for "{query}"', { query: state.searchQuery });
     if (el.resultsPlatformBadge) el.resultsPlatformBadge.textContent = state.platform;
-    if (el.resultsCount) el.resultsCount.textContent = 'Searching...';
+    if (el.resultsCount) el.resultsCount.textContent = tr('Searching...');
 
     if (el.searchTracksList) {
       el.searchTracksList.innerHTML = `<div class="m3-loader-container" style="display: flex; justify-content: center; align-items: center; padding: 64px 0; width: 100%;">
@@ -3236,19 +3247,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       if (!navigator.onLine) {
-        if (el.searchTracksList) el.searchTracksList.innerHTML = `<div class="empty-hint">Offline: connect to the internet to search new tracks</div>`;
-        if (el.resultsCount) el.resultsCount.textContent = 'offline';
+        if (el.searchTracksList) el.searchTracksList.innerHTML = `<div class="empty-hint">${tr('Offline: connect to the internet to search new tracks')}</div>`;
+        if (el.resultsCount) el.resultsCount.textContent = tr('offline');
         return;
       }
       const searchUrl = `http://127.0.0.1:${state.serverPort}/api/search?q=${encodeURIComponent(state.searchQuery)}&platform=${state.platform}&limit=20`;
       const res = await fetch(searchUrl);
       const data = await res.json();
 
-      if (!data.success || !data.tracks) throw new Error(data.error || 'Failed to load search results');
+      if (!data.success || !data.tracks) throw new Error(data.error || tr('Failed to load search results'));
 
       state.searchResults = data.tracks;
-      if (el.resultsCount) el.resultsCount.textContent = `${data.tracks.length} tracks found`;
-      if (el.resultsPlatformBadge && data.source === 'deezer') el.resultsPlatformBadge.textContent = 'spotify · deezer catalog';
+      if (el.resultsCount) el.resultsCount.textContent = trn(data.tracks.length, '{n} track found', '{n} tracks found');
+      if (el.resultsPlatformBadge && data.source === 'deezer') el.resultsPlatformBadge.textContent = tr('spotify · deezer catalog');
 
       requestAnimationFrame(() => {
         if (el.searchTracksList) renderTracks(el.searchTracksList, data.tracks, 'search');
@@ -3256,8 +3267,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.error('Search error:', err);
       const isOff = !navigator.onLine;
-      if (el.searchTracksList) el.searchTracksList.innerHTML = `<div class="empty-hint">${isOff ? 'Offline: connect to the internet to search new tracks' : 'Error fetching results: ' + err.message}</div>`;
-      if (el.resultsCount) el.resultsCount.textContent = isOff ? 'offline' : 'error';
+      if (el.searchTracksList) el.searchTracksList.innerHTML = `<div class="empty-hint">${isOff ? tr('Offline: connect to the internet to search new tracks') : tr('Error fetching results: {error}', { error: err.message })}</div>`;
+      if (el.resultsCount) el.resultsCount.textContent = isOff ? tr('offline') : tr('error');
     }
   }
 
@@ -3298,28 +3309,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       <img class="track-row-thumb" src="${track.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'">
       <div class="track-row-info">
       <span class="track-row-title">${(track.title || 'untitled')}</span>
-      <span class="track-row-artist" title="view artist profile">${(track.artist || 'unknown artist')}</span>
+      <span class="track-row-artist" title="${tr('view artist profile')}">${(track.artist || tr('unknown artist'))}</span>
       </div>
       <span class="track-row-duration">${formatDuration(track.duration)}</span>
       <div class="track-row-actions">
-      <button class="btn-icon-pill btn-row-fav" title="favorite">
+      <button class="btn-icon-pill btn-row-fav" title="${tr('favorite')}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
       </button>
-      <button class="btn-icon-pill btn-row-play-next" title="play next">
+      <button class="btn-icon-pill btn-row-play-next" title="${tr('play next')}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="4 5 12 12 4 19 4 5" fill="currentColor"></polygon><line x1="15" y1="7" x2="21" y2="7"></line><line x1="15" y1="12" x2="21" y2="12"></line><line x1="15" y1="17" x2="21" y2="17"></line></svg>
       </button>
-      <button class="btn-icon-pill btn-row-add-playlist" title="add to playlist">
+      <button class="btn-icon-pill btn-row-add-playlist" title="${tr('add to playlist')}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       </button>
-      <button class="btn-icon-pill btn-row-more" title="download & options">
+      <button class="btn-icon-pill btn-row-more" title="${tr('download & options')}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle><circle cx="5" cy="12" r="2"></circle></svg>
       </button>
       ${context === 'saved' ? `
-        <button class="btn-icon-pill btn-row-remove-saved delete-btn" title="delete saved file">
+        <button class="btn-icon-pill btn-row-remove-saved delete-btn" title="${tr('delete saved file')}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
         </button>` : ''}
       ${context === 'playlist' ? `
-        <button class="btn-icon-pill btn-row-remove-playlist delete-btn" title="remove from playlist">
+        <button class="btn-icon-pill btn-row-remove-playlist delete-btn" title="${tr('remove from playlist')}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>` : ''}
         </div>
@@ -3428,7 +3439,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!tracks || tracks.length === 0) {
       container.style.paddingTop = '0px';
       container.style.paddingBottom = '0px';
-      container.innerHTML = '<div class="empty-hint">no tracks found.</div>';
+      container.innerHTML = `<div class="empty-hint">${tr('no tracks found.')}</div>`;
       return;
     }
 
@@ -3531,20 +3542,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     switchView('artist');
 
     if (el.artistProfileName) el.artistProfileName.textContent = cleanName;
-    if (el.artistProfileBio) el.artistProfileBio.textContent = 'Fetching artist discography and biography...';
-    if (el.artistTracksCount) el.artistTracksCount.textContent = 'Searching...';
+    if (el.artistProfileBio) el.artistProfileBio.textContent = tr('Fetching artist discography and biography...');
+    if (el.artistTracksCount) el.artistTracksCount.textContent = tr('Searching...');
     if (el.artistAvatarImg) el.artistAvatarImg.style.display = 'none';
     const wrap = document.getElementById('artist-avatar-wrap');
     if (wrap) wrap.classList.add('loading');
     if (el.artistAvatarFallback) el.artistAvatarFallback.style.display = 'flex';
     if (el.artistVerifiedBadge) el.artistVerifiedBadge.classList.add('hidden');
-    if (el.artistTracksList) el.artistTracksList.innerHTML = '<div class="empty-hint">fetching official releases...</div>';
+    if (el.artistTracksList) el.artistTracksList.innerHTML = `<div class="empty-hint">${tr('fetching official releases...')}</div>`;
 
     try {
       const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/artist?name=${encodeURIComponent(cleanName)}`);
       const data = await res.json();
 
-      if (!data.success || !data.artist) throw new Error('Artist not found');
+      if (!data.success || !data.artist) throw new Error(tr('Artist not found'));
 
       state.currentArtistData = data.artist;
       if (el.artistProfileName) el.artistProfileName.textContent = data.artist.name;
@@ -3563,15 +3574,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      if (el.artistTracksCount) el.artistTracksCount.textContent = `${data.artist.tracks.length} tracks`;
+      if (el.artistTracksCount) el.artistTracksCount.textContent = trn(data.artist.tracks.length, '{n} track', '{n} tracks');
 
       requestAnimationFrame(() => {
         if (el.artistTracksList) renderTracks(el.artistTracksList, data.artist.tracks, 'artist');
       });
     } catch (e) {
       console.warn('Artist load error:', e);
-      if (el.artistProfileBio) el.artistProfileBio.textContent = 'Could not load artist profile information.';
-      if (el.artistTracksList) el.artistTracksList.innerHTML = '<div class="empty-hint">no tracks found for this artist.</div>';
+      if (el.artistProfileBio) el.artistProfileBio.textContent = tr('Could not load artist profile information.');
+      if (el.artistTracksList) el.artistTracksList.innerHTML = `<div class="empty-hint">${tr('no tracks found for this artist.')}</div>`;
     }
   }
 
@@ -3649,7 +3660,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       (t.artist && t.artist.toLowerCase().includes(query))
       );
     }
-    if (el.favoritesSubtitle) el.favoritesSubtitle.textContent = query ? `${filtered.length} of ${state.favorites.length} tracks` : `${state.favorites.length} tracks saved`;
+    if (el.favoritesSubtitle) el.favoritesSubtitle.textContent = query ? tr('{shown} of {total} tracks', { shown: filtered.length, total: state.favorites.length }) : trn(state.favorites.length, '{n} track saved', '{n} tracks saved');
     if (el.favoritesTracksList) renderTracks(el.favoritesTracksList, filtered, 'favorites');
   }
 
@@ -3674,10 +3685,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const total = state.savedTracks.length;
     if (el.savedSubtitle) {
-      el.savedSubtitle.textContent = query ? `${filtered.length} of ${total} songs` : `${total} songs · ${state.savedDirectory}`;
+      el.savedSubtitle.textContent = query ? tr('{shown} of {total} songs', { shown: filtered.length, total }) : trn(total, '{n} song · {dir}', '{n} songs · {dir}', { dir: state.savedDirectory });
     }
     if (el.savedTracksList) {
-      if (!total) el.savedTracksList.innerHTML = '<div class="empty-hint">No saved songs yet. Use the download button on any track.</div>';
+      if (!total) el.savedTracksList.innerHTML = `<div class="empty-hint">${tr('No saved songs yet. Use the download button on any track.')}</div>`;
       else renderTracks(el.savedTracksList, filtered, 'saved');
     }
   }
@@ -3698,14 +3709,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function deleteSavedTrack(track) {
     if (!track || !track.savedFile) return;
-    if (!confirm(`Delete "${track.savedFile}" from the saved folder?`)) return;
+    if (!confirm(tr('Delete "{file}" from the saved folder?', { file: track.savedFile }))) return;
     try {
       const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/saved-delete?name=${encodeURIComponent(track.savedFile)}`, { method: 'POST' });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'could not delete');
-      showToast('Saved song deleted');
+      if (!data.success) throw new Error(data.error || tr('could not delete'));
+      showToast(tr('Saved song deleted'));
     } catch (e) {
-      showToast(`Delete failed: ${e.message}`, 'error');
+      showToast(tr('Delete failed: {error}', { error: e.message }), 'error');
     }
     loadSavedTracks();
   }
@@ -3769,7 +3780,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!el.volumeSlider) return;
     el.volumeSlider.value = Math.min(1, Math.max(0, state.volume + delta));
     el.volumeSlider.dispatchEvent(new Event('input', { bubbles: true }));
-    showToast(`Volume ${Math.round(state.volume * 100)}%`);
+    showToast(tr('Volume {value}%', { value: Math.round(state.volume * 100) }));
   }
 
   function toggleMiniPlayer() {
@@ -3901,8 +3912,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       infoEl.className = 'playlist-item-info';
       const trackCount = (pl.tracks || []).length;
       infoEl.innerHTML = `
-        <span class="playlist-item-name">${(pl.name || 'untitled')}</span>
-        <span class="playlist-item-count">${trackCount} track${trackCount === 1 ? '' : 's'}</span>
+        <span class="playlist-item-name">${(pl.name || tr('untitled'))}</span>
+        <span class="playlist-item-count">${trn(trackCount, '{n} track', '{n} tracks')}</span>
       `;
 
       item.appendChild(thumbEl);
@@ -4173,7 +4184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       state.favorites.splice(toIdx, 0, moved);
       localStorage.setItem('devsize_favorites', JSON.stringify(state.favorites));
       if (el.favoritesSubtitle) {
-        el.favoritesSubtitle.textContent = `${state.favorites.length} tracks saved`;
+        el.favoritesSubtitle.textContent = trn(state.favorites.length, '{n} track saved', '{n} tracks saved');
       }
     }
   });
@@ -4226,7 +4237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       (t.artist && t.artist.toLowerCase().includes(query))
       );
     }
-    if (el.playlistDetailCount) el.playlistDetailCount.textContent = query ? `${filtered.length} of ${pl.tracks.length} tracks` : `${pl.tracks.length} tracks`;
+    if (el.playlistDetailCount) el.playlistDetailCount.textContent = query ? tr('{shown} of {total} tracks', { shown: filtered.length, total: pl.tracks.length }) : trn(pl.tracks.length, '{n} track', '{n} tracks');
     const detailCover = document.getElementById('playlist-detail-cover');
     if (detailCover) renderPlaylistCover(detailCover, pl, 140);
     const firstThumb = (pl.tracks && pl.tracks[0]) ? getTrackThumbUrl(pl.tracks[0]) : '';
@@ -4259,7 +4270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!el.playlistPickList) return;
     el.playlistPickList.innerHTML = '';
     if (state.playlists.length === 0) {
-      el.playlistPickList.innerHTML = '<div class="empty-hint">no playlists yet. create one first.</div>';
+      el.playlistPickList.innerHTML = `<div class="empty-hint">${tr('no playlists yet. create one first.')}</div>`;
     } else {
       state.playlists.forEach(pl => {
         const item = document.createElement('div');
@@ -4594,7 +4605,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let lastKind = null;
     suggest.items.forEach((item, i) => {
       if (item.kind !== lastKind) {
-        const label = item.kind === 'track' ? 'In your library' : item.kind === 'recent' ? 'Recent searches' : 'Suggestions';
+        const label = item.kind === 'track' ? tr('In your library') : item.kind === 'recent' ? tr('Recent searches') : tr('Suggestions');
         html += `<div class="search-suggest-label">${label}</div>`;
         lastKind = item.kind;
       }
@@ -4611,12 +4622,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span class="search-suggest-icon">${SUGGEST_ICONS[item.kind === 'recent' ? 'recent' : 'search']}</span>
           <span class="search-suggest-text"><span class="search-suggest-main">${highlightCompletion(item.text, typed)}</span></span>
           ${item.kind === 'recent'
-            ? `<button class="search-suggest-action" data-remove="${i}" title="Remove from recent searches">${SUGGEST_ICONS.remove}</button>`
-            : `<button class="search-suggest-action" data-fill="${i}" title="Complete without searching">${SUGGEST_ICONS.fill}</button>`}
+            ? `<button class="search-suggest-action" data-remove="${i}" title="${tr('Remove from recent searches')}">${SUGGEST_ICONS.remove}</button>`
+            : `<button class="search-suggest-action" data-fill="${i}" title="${tr('Complete without searching')}">${SUGGEST_ICONS.fill}</button>`}
         </div>`;
       }
     });
-    html += '<div class="search-suggest-hint"><kbd>↑</kbd><kbd>↓</kbd> navigate <kbd>Tab</kbd> complete <kbd>Esc</kbd> close</div>';
+    html += `<div class="search-suggest-hint"><kbd>↑</kbd><kbd>↓</kbd> ${tr('navigate')} <kbd>Tab</kbd> ${tr('complete')} <kbd>Esc</kbd> ${tr('close')}</div>`;
     suggest.box.innerHTML = html;
     suggest.box.classList.remove('hidden');
     requestAnimationFrame(() => suggest.box.classList.add('open'));
@@ -4785,8 +4796,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       platformButtons.forEach(b => b.classList.toggle('active', b === btn));
       if (el.searchInput) {
         el.searchInput.placeholder = platform === 'tiktok'
-          ? 'Paste a TikTok video link, profile link or @username...'
-          : 'Search, or paste a Spotify / TikTok link...';
+          ? tr('Paste a TikTok video link, profile link or @username...')
+          : tr('Search, or paste a Spotify / TikTok link...');
       }
       if (el.searchInput && el.searchInput.value.trim()) performSearch(el.searchInput.value);
     });
@@ -4880,7 +4891,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     el.btnDeletePlaylist.addEventListener('click', () => {
       const pl = state.playlists.find(p => p.id === state.currentPlaylistId);
       if (!pl) return;
-      if (deletePlaylistMsg) deletePlaylistMsg.textContent = `Delete playlist "${pl.name}"? This action cannot be undone.`;
+      if (deletePlaylistMsg) deletePlaylistMsg.textContent = tr('Delete playlist "{name}"? This action cannot be undone.', { name: pl.name });
       if (deletePlaylistModal) openModal(deletePlaylistModal);
     });
   }
@@ -4895,7 +4906,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnConfirmDeletePlaylist.addEventListener('click', () => {
       deleteCurrentPlaylist();
       closeModal(deletePlaylistModal);
-      showToast('Playlist deleted');
+      showToast(tr('Playlist deleted'));
     });
   }
 
@@ -5257,7 +5268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (el.sliderCornerRadius) {
     el.sliderCornerRadius.addEventListener('input', (e) => {
       const val = parseInt(e.target.value, 10);
-      if (el.valCornerRadius) el.valCornerRadius.textContent = val === 16 ? 'Default' : `${val}px`;
+      if (el.valCornerRadius) el.valCornerRadius.textContent = val === 16 ? tr('Default') : `${val}px`;
       document.documentElement.style.setProperty('--md-shape-corner-l', `${val}px`);
       document.documentElement.style.setProperty('--md-shape-corner-m', `${Math.max(0, val - 4)}px`);
       localStorage.setItem('riffle_corner_radius', val.toString());
@@ -5350,6 +5361,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.addEventListener('click', () => {
       paletteDropdown.classList.remove('open');
+    });
+  }
+
+  // language: the page reloads to switch, so only one dictionary is ever in memory
+  const languageDropdown = document.getElementById('language-dropdown');
+  const languageTrigger = document.getElementById('language-trigger');
+  const languageLabel = document.getElementById('language-trigger-label');
+  const languageMenu = document.getElementById('language-menu');
+  if (window.i18n && languageDropdown && languageTrigger && languageMenu) {
+    const currentPref = window.i18n.preference();
+    languageMenu.querySelectorAll('.m3-dropdown-option').forEach(opt => {
+      const selected = opt.dataset.value === currentPref;
+      opt.classList.toggle('selected', selected);
+      if (selected && languageLabel) languageLabel.textContent = opt.textContent;
+    });
+
+    languageTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      languageDropdown.classList.toggle('open');
+    });
+
+    languageMenu.querySelectorAll('.m3-dropdown-option').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        languageDropdown.classList.remove('open');
+        if (opt.dataset.value === window.i18n.preference()) return;
+        window.i18n.setPreference(opt.dataset.value);
+        window.location.reload();
+      });
+    });
+
+    document.addEventListener('click', () => {
+      languageDropdown.classList.remove('open');
     });
   }
 
@@ -5477,7 +5521,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!spotifyApiStatus) return;
     spotifyApiStatus.textContent = error
       ? error
-      : configured ? 'Connected: searching the Spotify catalog' : 'Not configured: using Deezer catalog';
+      : configured ? tr('Connected: searching the Spotify catalog') : tr('Not configured: using Deezer catalog');
   }
 
   async function saveSpotifyApiConfig(clientId, clientSecret) {
@@ -5488,10 +5532,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         body: JSON.stringify({ clientId, clientSecret })
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'could not save');
+      if (!data.success) throw new Error(data.error || tr('could not save'));
       setSpotifyApiStatus(data.configured);
       if (spotifyClientSecret) spotifyClientSecret.value = '';
-      showToast(data.configured ? 'Spotify connected' : 'Spotify keys removed');
+      showToast(data.configured ? tr('Spotify connected') : tr('Spotify keys removed'));
     } catch (e) {
       setSpotifyApiStatus(false, e.message);
     }
@@ -5507,8 +5551,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSpotifyApiSave.addEventListener('click', () => {
       const id = (spotifyClientId?.value || '').trim();
       const secret = (spotifyClientSecret?.value || '').trim();
-      if (!id || !secret) return setSpotifyApiStatus(false, 'Fill in both Client ID and Client Secret');
-      if (spotifyApiStatus) spotifyApiStatus.textContent = 'Checking keys...';
+      if (!id || !secret) return setSpotifyApiStatus(false, tr('Fill in both Client ID and Client Secret'));
+      if (spotifyApiStatus) spotifyApiStatus.textContent = tr('Checking keys...');
       saveSpotifyApiConfig(id, secret);
     });
   }
@@ -5529,7 +5573,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
     }
     if (badgeDiscordRpc) {
-      badgeDiscordRpc.textContent = state.discordRpcEnabled ? 'on' : 'off';
+      badgeDiscordRpc.textContent = state.discordRpcEnabled ? tr('on') : tr('off');
     }
     const card = document.getElementById('card-discord-rpc');
     if (card) card.classList.toggle('enabled', state.discordRpcEnabled);
@@ -5557,7 +5601,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateDownloadBtnLabel() {
     if (el.downloadBtnText) {
-      el.downloadBtnText.textContent = `Download ${selectedFormat.toUpperCase()}`;
+      el.downloadBtnText.textContent = tr('Download {format}', { format: selectedFormat.toUpperCase() });
     }
   }
 
@@ -5572,8 +5616,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function openDownloadModal(track) {
     if (!track || !el.downloadModal) return;
     trackToDownload = track;
-    if (el.downloadPreviewTitle) el.downloadPreviewTitle.textContent = track.title || 'untitled';
-    if (el.downloadPreviewArtist) el.downloadPreviewArtist.textContent = track.artist || 'unknown artist';
+    if (el.downloadPreviewTitle) el.downloadPreviewTitle.textContent = track.title || tr('untitled');
+    if (el.downloadPreviewArtist) el.downloadPreviewArtist.textContent = track.artist || tr('unknown artist');
 
     if (track.thumbnail) {
       if (el.downloadPreviewThumb) {
@@ -5642,7 +5686,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (state.currentTrack) {
         openDownloadModal(state.currentTrack);
       } else {
-        showToast('No track currently playing', 'info');
+        showToast(tr('No track currently playing'), 'info');
       }
     });
   }
@@ -5652,10 +5696,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!trackToDownload) return;
       const t = trackToDownload;
 
-      if (el.downloadBtnText) el.downloadBtnText.textContent = 'Downloading & converting...';
+      if (el.downloadBtnText) el.downloadBtnText.textContent = tr('Downloading & converting...');
       el.btnConfirmDownload.disabled = true;
 
-      showToast(`Download started: ${t.title} (.${selectedFormat})`, 'info');
+      showToast(tr('Download started: {title} (.{format})', { title: t.title, format: selectedFormat }), 'info');
 
       try {
         const downloadUrl = `http://127.0.0.1:${state.serverPort}/api/download?url=${encodeURIComponent(t.url || '')}&title=${encodeURIComponent(t.title || '')}&artist=${encodeURIComponent(t.artist || '')}&format=${selectedFormat}&quality=${selectedQuality}&id=${encodeURIComponent(t.id || '')}&thumbnail=${encodeURIComponent(t.thumbnail || '')}&duration=${encodeURIComponent(t.duration || 0)}&platform=${encodeURIComponent(t.platform || state.platform || '')}`;
@@ -5665,17 +5709,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
           data = JSON.parse(text);
         } catch (e) {
-          throw new Error(text || 'server error');
+          throw new Error(text || tr('server error'));
         }
 
-        if (!data.success) throw new Error(data.error || 'Failed to download');
+        if (!data.success) throw new Error(data.error || tr('Failed to download'));
 
-        showToast(`Download complete: ${data.filename} is in Saved songs`, 'info');
+        showToast(tr('Download complete: {file} is in Saved songs', { file: data.filename }), 'info');
         loadSavedTracks();
         if (el.downloadModal) closeModal(el.downloadModal);
       } catch (err) {
         console.error('Download error:', err);
-        showToast(`Download failed: ${err.message}`, 'error');
+        showToast(tr('Download failed: {error}', { error: err.message }), 'error');
       } finally {
         el.btnConfirmDownload.disabled = false;
         updateDownloadBtnLabel();
@@ -5902,7 +5946,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!myWaveCurrentTracks || myWaveCurrentTracks.length === 0) {
         const profile = await computeTasteProfile();
         if (profile.trackCount < 5) {
-          showToast('Save at least 5 tracks to tune My Wave');
+          showToast(tr('Save at least 5 tracks to tune My Wave'));
           return;
         }
         await loadHomePage();
@@ -5911,7 +5955,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.myWaveActive = true;
         const startIdx = (currentWaveFocusedIndex >= 0 && currentWaveFocusedIndex < myWaveCurrentTracks.length) ? currentWaveFocusedIndex : 0;
         playTrack(myWaveCurrentTracks[startIdx], [...myWaveCurrentTracks], startIdx);
-        showToast('Playing My Wave');
+        showToast(tr('Playing My Wave'));
       }
     });
   }
@@ -5956,8 +6000,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         focusedTitle.style.opacity = '0';
         focusedArtist.style.opacity = '0';
         setTimeout(() => {
-          focusedTitle.textContent = track.title || 'Untitled';
-          focusedArtist.textContent = track.artist || 'Unknown';
+          focusedTitle.textContent = track.title || tr('Untitled');
+          focusedArtist.textContent = track.artist || tr('Unknown');
           focusedTitle.style.opacity = '1';
           focusedArtist.style.opacity = '1';
         }, 150);
@@ -6013,7 +6057,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       quickRow.innerHTML = '';
       const recent = state.history.slice(0, 6);
       if (recent.length === 0) {
-        quickRow.innerHTML = '<span style="font-size:calc(12px * var(--font-scale, 1));color:var(--md-sys-color-outline)">Play some tracks to see them here</span>';
+        quickRow.innerHTML = `<span style="font-size:calc(12px * var(--font-scale, 1));color:var(--md-sys-color-outline)">${tr('Play some tracks to see them here')}</span>`;
       } else {
         recent.forEach((t, idx) => {
           const pill = document.createElement('button');
@@ -6065,7 +6109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (profile.trackCount < 5) {
         if (focusedMeta) focusedMeta.innerHTML = '';
-        vibeGrid.innerHTML = '<div class="vibe-empty-hint">Save at least 5 tracks to tune My Wave to your taste.</div>';
+        vibeGrid.innerHTML = `<div class="vibe-empty-hint">${tr('Save at least 5 tracks to tune My Wave to your taste.')}</div>`;
         myWaveCurrentTracks = [];
         return;
       }
@@ -6086,7 +6130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await res.json();
         if (!data.success || !data.tracks || data.tracks.length === 0) {
           if (focusedMeta) focusedMeta.innerHTML = '';
-          vibeGrid.innerHTML = '<div class="vibe-empty-hint">No wave recommendations available right now.</div>';
+          vibeGrid.innerHTML = `<div class="vibe-empty-hint">${tr('No wave recommendations available right now.')}</div>`;
           myWaveCurrentTracks = [];
           return;
         }
@@ -6124,7 +6168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
               </div>
               <div class="my-wave-track-meta">
-                <span class="my-wave-track-title">${track.title || 'Untitled'}</span>
+                <span class="my-wave-track-title">${track.title || tr('Untitled')}</span>
                 <span class="my-wave-track-artist">${track.artist || 'Unknown'}</span>
               </div>
             `;
@@ -6148,7 +6192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           if (focusedMeta && myWaveCurrentTracks[0]) {
             focusedMeta.innerHTML = `
-              <div class="my-wave-focused-title" id="my-wave-focused-title">${myWaveCurrentTracks[0].title || 'Untitled'}</div>
+              <div class="my-wave-focused-title" id="my-wave-focused-title">${myWaveCurrentTracks[0].title || tr('Untitled')}</div>
               <div class="my-wave-focused-artist" id="my-wave-focused-artist">${myWaveCurrentTracks[0].artist || 'Unknown'}</div>
             `;
             updateAmbientLight(myWaveCurrentTracks[0].thumbnail);
@@ -6161,7 +6205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 100);
       } catch (err) {
         if (focusedMeta) focusedMeta.innerHTML = '';
-        vibeGrid.innerHTML = '<div class="vibe-empty-hint">Could not connect to wave recommendations.</div>';
+        vibeGrid.innerHTML = `<div class="vibe-empty-hint">${tr('Could not connect to wave recommendations.')}</div>`;
         myWaveCurrentTracks = [];
       }
     }
@@ -6384,8 +6428,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       bar.to = 0;
       bar.dur = 0;
     });
-    if (cacheAudioSize) { cacheAudioSize.textContent = 'calculating...'; cacheAudioSize.dataset.val = '0'; }
-    if (cacheWebSize) { cacheWebSize.textContent = 'calculating...'; cacheWebSize.dataset.val = '0'; }
+    if (cacheAudioSize) { cacheAudioSize.textContent = tr('calculating...'); cacheAudioSize.dataset.val = '0'; }
+    if (cacheWebSize) { cacheWebSize.textContent = tr('calculating...'); cacheWebSize.dataset.val = '0'; }
 
     cacheModal.classList.remove('hidden');
     requestAnimationFrame(() => cacheModal.classList.add('visible'));
@@ -6459,12 +6503,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/offline-library`);
       const data = await res.json();
       if (data && data.success) {
-        elSize.textContent = `${data.count} track${data.count === 1 ? '' : 's'} (${formatBytes(data.totalBytes)})`;
+        elSize.textContent = trn(data.count, '{n} track ({size})', '{n} tracks ({size})', { size: formatBytes(data.totalBytes) });
       } else {
-        elSize.textContent = '0 tracks (0 B)';
+        elSize.textContent = trn(0, '{n} track ({size})', '{n} tracks ({size})', { size: '0 B' });
       }
     } catch (e) {
-      elSize.textContent = 'Unavailable';
+      elSize.textContent = tr('Unavailable');
     }
   }
 
@@ -6474,11 +6518,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!trackToDownload || !trackToDownload.id) return;
       try {
         await fetch(`http://127.0.0.1:${state.serverPort}/api/offline-delete?id=${encodeURIComponent(trackToDownload.id)}`, { method: 'POST' });
-        showToast('Track removed from offline cache');
+        showToast(tr('Track removed from offline cache'));
         updateOfflineStorageUI();
         if (el.downloadModal) closeModal(el.downloadModal);
       } catch (e) {
-        showToast('Failed to delete offline track');
+        showToast(tr('Failed to delete offline track'));
       }
     });
   }
@@ -6502,10 +6546,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnConfirmClearOffline.addEventListener('click', async () => {
       try {
         await fetch(`http://127.0.0.1:${state.serverPort}/api/clear-offline-library`, { method: 'POST' });
-        showToast('Offline library cleared');
+        showToast(tr('Offline library cleared'));
         updateOfflineStorageUI();
       } catch (e) {
-        showToast('Failed to clear offline library');
+        showToast(tr('Failed to clear offline library'));
       }
       closeModal(clearOfflineModal);
     });
@@ -6521,7 +6565,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (data.progress && data.progress.status === 'downloading') {
       const tool = data.progress.tool || 'yt-dlp';
       const pct = data.progress.percent || 0;
-      statusText.textContent = `Downloading ${tool} ${pct}%`;
+      statusText.textContent = tr('Downloading {tool} {pct}%', { tool, pct });
       if (btnInstall) {
         btnInstall.classList.remove('hidden');
         btnInstall.disabled = true;
@@ -6530,7 +6574,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (data.ytDlp && data.ffmpeg) {
-      statusText.textContent = 'Installed';
+      statusText.textContent = tr('Installed');
       if (btnInstall) {
         btnInstall.classList.add('hidden');
         btnInstall.disabled = false;
@@ -6539,7 +6583,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const missing = [];
       if (!data.ytDlp) missing.push('yt-dlp');
       if (!data.ffmpeg) missing.push('ffmpeg');
-      statusText.textContent = `Missing: ${missing.join(', ')}`;
+      statusText.textContent = tr('Missing: {list}', { list: missing.join(', ') });
       if (btnInstall) {
         btnInstall.classList.remove('hidden');
         btnInstall.disabled = false;
@@ -6624,25 +6668,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (d.canInstall) {
         actions = [
           {
-            label: 'Update now',
+            label: tr('Update now'),
             primary: true,
             onClick: () => {
               userTriggeredUpdate = true;
               window.electronAPI.updateAction('now');
-              if (activeUpdateToast) activeUpdateToast.setText('Downloading update 0%');
+              if (activeUpdateToast) activeUpdateToast.setText(tr('Downloading update {pct}%', { pct: 0 }));
             }
           },
           {
-            label: 'On next launch',
+            label: tr('On next launch'),
             primary: false,
             onClick: () => {
               window.electronAPI.updateAction('later');
               if (activeUpdateToast) activeUpdateToast.close();
-              showToast('The update will install when you quit Riffle');
+              showToast(tr('The update will install when you quit Riffle'));
             }
           },
           {
-            label: 'Ignore',
+            label: tr('Ignore'),
             primary: false,
             onClick: () => {
               window.electronAPI.updateAction('ignore');
@@ -6653,14 +6697,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         actions = [
           {
-            label: 'Open release page',
+            label: tr('Open release page'),
             primary: true,
             onClick: () => {
               window.open(d.url);
             }
           },
           {
-            label: 'Ignore',
+            label: tr('Ignore'),
             primary: false,
             onClick: () => {
               window.electronAPI.updateAction('ignore');
@@ -6670,19 +6714,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         ];
       }
 
-      activeUpdateToast = showToast('Riffle ' + d.version + ' is available', 'info', { actions, persistent: true });
+      activeUpdateToast = showToast(tr('Riffle {version} is available', { version: d.version }), 'info', { actions, persistent: true });
     });
 
     if (window.electronAPI.onUpdateProgress) {
       window.electronAPI.onUpdateProgress((p) => {
-        if (activeUpdateToast) activeUpdateToast.setText('Downloading update ' + p.percent + '%');
+        if (activeUpdateToast) activeUpdateToast.setText(tr('Downloading update {pct}%', { pct: p.percent }));
       });
     }
 
     if (window.electronAPI.onUpdateReady) {
       window.electronAPI.onUpdateReady(() => {
         if (activeUpdateToast) activeUpdateToast.close();
-        showToast('Update downloaded. It will install when you quit Riffle.');
+        showToast(tr('Update downloaded. It will install when you quit Riffle.'));
       });
     }
 
@@ -6690,14 +6734,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.electronAPI.onUpdateError((e) => {
         if (activeUpdateToast) activeUpdateToast.close();
         if (userTriggeredUpdate) {
-          showToast(e && e.message ? e.message : 'Update failed', 'error');
+          showToast(e && e.message ? e.message : tr('Update failed'), 'error');
         }
       });
     }
 
     if (window.electronAPI.onUpdateNotAvailable) {
       window.electronAPI.onUpdateNotAvailable(() => {
-        showToast('You are up to date');
+        showToast(tr('You are up to date'));
       });
     }
 
@@ -6714,7 +6758,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.electronAPI.getAppVersion) {
       window.electronAPI.getAppVersion().then((version) => {
         const elAboutVersion = document.getElementById('about-version');
-        if (elAboutVersion) elAboutVersion.textContent = 'Version ' + version;
+        if (elAboutVersion) elAboutVersion.textContent = tr('Version {version}', { version });
         const elCreditsVersion = document.getElementById('credits-version');
         if (elCreditsVersion) elCreditsVersion.textContent = 'v' + version;
       }).catch(() => {});

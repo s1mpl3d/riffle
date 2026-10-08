@@ -88,19 +88,23 @@ function runGUI() {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('tray-command', cmd);
   }
 
+  // the window sends translated labels when it isn't in English
+  const TRAY_LABELS_EN = { play: 'Play', pause: 'Pause', next: 'Next', previous: 'Previous', mini: 'Mini player', closeMini: 'Close mini player', show: 'Show Riffle', quit: 'Quit' };
+
   function refreshTray() {
     if (!tray) return;
+    const L = Object.assign({}, TRAY_LABELS_EN, trayInfo.labels || {});
     const nowPlaying = trayInfo.title ? `${trayInfo.title}${trayInfo.artist ? ' - ' + trayInfo.artist : ''}` : '';
     tray.setToolTip(nowPlaying ? `Riffle\n${nowPlaying}`.slice(0, 127) : 'Riffle');
     tray.setContextMenu(Menu.buildFromTemplate([
       ...(nowPlaying ? [{ label: nowPlaying.slice(0, 60), enabled: false }, { type: 'separator' }] : []),
-      { label: trayInfo.isPlaying ? 'Pause' : 'Play', click: () => sendTrayCommand('toggle') },
-      { label: 'Next', click: () => sendTrayCommand('next') },
-      { label: 'Previous', click: () => sendTrayCommand('prev') },
+      { label: trayInfo.isPlaying ? L.pause : L.play, click: () => sendTrayCommand('toggle') },
+      { label: L.next, click: () => sendTrayCommand('next') },
+      { label: L.previous, click: () => sendTrayCommand('prev') },
       { type: 'separator' },
-      { label: miniWindow && !miniWindow.isDestroyed() ? 'Close mini player' : 'Mini player', click: toggleMiniWindow },
-      { label: 'Show Riffle', click: showMainWindow },
-      { label: 'Quit', click: () => { isQuitting = true; app.quit(); } }
+      { label: miniWindow && !miniWindow.isDestroyed() ? L.closeMini : L.mini, click: toggleMiniWindow },
+      { label: L.show, click: showMainWindow },
+      { label: L.quit, click: () => { isQuitting = true; app.quit(); } }
     ]));
   }
 

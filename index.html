@@ -421,6 +421,23 @@
               </div>
             </div>
 
+            <div class="setting-item" id="setting-language">
+              <div class="setting-item-top">
+                <span class="setting-name">Language</span>
+              </div>
+              <div class="m3-dropdown" id="language-dropdown">
+                <button class="m3-dropdown-trigger" id="language-trigger" type="button">
+                  <span id="language-trigger-label">Automatic</span>
+                  <svg class="m3-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+                <div class="m3-dropdown-menu" id="language-menu">
+                  <button class="m3-dropdown-option" data-value="auto" type="button">Automatic</button>
+                  <button class="m3-dropdown-option" data-value="en" type="button" translate="no">English</button>
+                  <button class="m3-dropdown-option" data-value="pt-BR" type="button" translate="no">Português (Brasil)</button>
+                </div>
+              </div>
+            </div>
+
             <div class="setting-item" id="setting-palette-style">
               <div class="setting-item-top">
                 <span class="setting-name">Palette style</span>
@@ -1460,6 +1477,7 @@
 
 
 
+  <script src="i18n.js"></script>
   <script src="assets/hls.min.js"></script>
   <script src="audio-engine.js"></script>
   <script src="app.js"></script>
