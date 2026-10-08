@@ -36,6 +36,14 @@ function saveTrackMetadata(cleanId, meta) {
   } catch (e) {}
 }
 
+// in-memory caches are capped so a session left running for days doesn't keep growing;
+// Maps keep insertion order, so the oldest entry goes first
+function remember(map, key, value, max = 200) {
+  map.delete(key);
+  map.set(key, value);
+  while (map.size > max) map.delete(map.keys().next().value);
+}
+
 const searchCache = new Map();
 const streamUrlCache = new Map();
 const lyricsCache = new Map();
@@ -282,7 +290,7 @@ async function searchSoundcloud(query, limit = 14) {
     });
 
     if (entries.length > 0) {
-      searchCache.set(cacheKey, entries);
+      remember(searchCache, cacheKey, entries);
       setTimeout(() => { searchCache.delete(cacheKey); }, 300000);
     }
     return entries;
@@ -833,7 +841,7 @@ async function prefetchTrack(trackUrl, trackId, platform) {
         isHls: isHls,
         proxyUrl: `http://127.0.0.1:${PORT}/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`
       };
-      streamUrlCache.set(cleanId, { timestamp: Date.now(), data });
+      remember(streamUrlCache, cleanId, { timestamp: Date.now(), data });
       downloadTrackToDisk(trackUrl, cleanId, platform);
     }
   } catch (e) {
@@ -863,7 +871,7 @@ async function handleSearch(req, res, query, platform = 'youtube', limit = 20) {
       } else {
         throw new Error('TikTok has no text search: paste a video link, a profile link or an @username');
       }
-      searchCache.set(cacheKey, result);
+      remember(searchCache, cacheKey, result);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify(result));
     } catch (err) {
@@ -877,7 +885,7 @@ async function handleSearch(req, res, query, platform = 'youtube', limit = 20) {
       const directTracks = await directYoutubeSearch(query);
       if (directTracks && directTracks.length > 0) {
         const result = { success: true, tracks: directTracks.slice(0, limit) };
-        searchCache.set(cacheKey, result);
+        remember(searchCache, cacheKey, result);
 
         setTimeout(() => {
           for (let i = 0; i < Math.min(4, directTracks.length); i++) {
@@ -939,7 +947,7 @@ async function handleSearch(req, res, query, platform = 'youtube', limit = 20) {
     }));
 
     const result = { success: true, tracks: entries };
-    searchCache.set(cacheKey, result);
+    remember(searchCache, cacheKey, result);
 
     setTimeout(() => {
       if (entries[0] && entries[0].url) prefetchTrack(entries[0].url, entries[0].id, platform).catch(() => {});
@@ -1049,7 +1057,7 @@ async function handleStreamInfo(req, res, trackUrl, trackId, platform = 'youtube
     proxyUrl: `http://127.0.0.1:${PORT}/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`
   };
 
-  streamUrlCache.set(cleanId, { timestamp: Date.now(), data });
+  remember(streamUrlCache, cleanId, { timestamp: Date.now(), data });
   downloadTrackToDisk(trackUrl, cleanId, platform, meta);
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1151,7 +1159,7 @@ async function fetchArtistInfo(artistName) {
     tracks: tracks.slice(0, 35)
   };
 
-  artistCache.set(cacheKey, result);
+  remember(artistCache, cacheKey, result);
   return result;
 }
 
@@ -1495,7 +1503,7 @@ async function handleLyrics(req, res, title, artist, allowOnline = true) {
   if (fs.existsSync(customPath)) {
     try {
       const customLyrics = await fs.promises.readFile(customPath, 'utf-8');
-      lyricsCache.set(cacheKey, { text: customLyrics, isCustom: true });
+      remember(lyricsCache, cacheKey, { text: customLyrics, isCustom: true });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ success: true, lyrics: customLyrics, isCustom: true }));
     } catch (e) {}
@@ -1505,7 +1513,7 @@ async function handleLyrics(req, res, title, artist, allowOnline = true) {
   if (fs.existsSync(fetchedLyricsPath)) {
     try {
       const diskLyrics = await fs.promises.readFile(fetchedLyricsPath, 'utf-8');
-      lyricsCache.set(cacheKey, { text: diskLyrics, isCustom: false });
+      remember(lyricsCache, cacheKey, { text: diskLyrics, isCustom: false });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ success: true, lyrics: diskLyrics, isCustom: false }));
     } catch (e) {}
@@ -1523,7 +1531,7 @@ async function handleLyrics(req, res, title, artist, allowOnline = true) {
         await fs.promises.writeFile(fetchedLyricsPath, rawLyrics, 'utf-8');
       } catch (e) {}
     }
-    lyricsCache.set(cacheKey, { text: rawLyrics, isCustom: false });
+    remember(lyricsCache, cacheKey, { text: rawLyrics, isCustom: false });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, lyrics: rawLyrics }));

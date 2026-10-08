@@ -1713,6 +1713,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   let miniOpen = false;
   let lastMiniSend = 0;
 
+  // hls.js is ~600 KB and only needed for HLS streams, so it loads on first use
+  let hlsLoading = null;
+  function loadHls() {
+    if (window.Hls) return Promise.resolve();
+    if (!hlsLoading) {
+      hlsLoading = new Promise(resolve => {
+        const script = document.createElement('script');
+        script.src = 'assets/hls.min.js';
+        script.onload = resolve;
+        script.onerror = () => { hlsLoading = null; resolve(); };
+        document.head.appendChild(script);
+      });
+    }
+    return hlsLoading;
+  }
+
   function sendMiniState(force = false) {
     if (!miniOpen || !window.electronAPI || !window.electronAPI.miniState) return;
     const now = Date.now();
@@ -2314,6 +2330,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         hlsInstance.destroy();
         hlsInstance = null;
       }
+
+      if (data.isHls) await loadHls();
+      if (currentToken !== state.loadToken) return;
 
       if (data.isHls && window.Hls && Hls.isSupported()) {
         hlsInstance = new Hls({ enableWorker: true, lowLatencyMode: true, maxBufferLength: 30, maxMaxBufferLength: 60, maxBufferSize: 30 * 1000 * 1000 });

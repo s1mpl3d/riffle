@@ -146,50 +146,50 @@ button:active, .chip-btn:active, .mix-card:active, .track-row:active, .rail-icon
 }
 
 .shape {
+  /* soft blobs drawn as gradients: a filter blur would be re-rendered on every animation frame */
+  --shape-color: transparent;
   position: absolute;
-  filter: blur(80px);
   opacity: 0.5;
-  mix-blend-mode: normal;
+  background: radial-gradient(closest-side, var(--shape-color) 30%, transparent 100%);
   will-change: transform;
   transition: transform 2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .shape-pill {
-  width: 400px;
-  height: 200px;
-  border-radius: 200px;
-  background: var(--md-sys-color-primary-container);
-  top: -50px;
-  left: 10%;
+  width: 560px;
+  height: 360px;
+  --shape-color: var(--md-sys-color-primary-container);
+  top: -130px;
+  left: calc(10% - 80px);
 }
 
 .shape-egg {
-  width: 350px;
-  height: 450px;
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: var(--md-sys-color-secondary-container);
-  bottom: 10%;
-  right: 5%;
+  width: 510px;
+  height: 610px;
+  --shape-color: var(--md-sys-color-secondary-container);
+  bottom: calc(10% - 80px);
+  right: calc(5% - 80px);
 }
 
 .shape-triangle {
-  width: 300px;
-  height: 300px;
-  background: var(--md-sys-color-tertiary-container);
+  width: 460px;
+  height: 460px;
+  --shape-color: var(--md-sys-color-tertiary-container);
   opacity: 0.4;
-  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
-  top: 30%;
-  left: 30%;
+  top: calc(30% - 80px);
+  left: calc(30% - 80px);
 }
 
+/* the drift is a few px per second, so ~5 updates a second look the same as 60
+   and spare the window from being recomposited on every frame */
 body.is-playing .shape-pill {
-  animation: float-pill 20s infinite alternate ease-in-out;
+  animation: float-pill 20s infinite alternate steps(100, jump-none);
 }
 body.is-playing .shape-egg {
-  animation: float-egg 25s infinite alternate ease-in-out;
+  animation: float-egg 25s infinite alternate steps(125, jump-none);
 }
 body.is-playing .shape-triangle {
-  animation: float-triangle 18s infinite linear;
+  animation: float-triangle 18s infinite steps(90, jump-none);
 }
 
 @keyframes float-pill {
@@ -199,7 +199,7 @@ body.is-playing .shape-triangle {
   100% { transform: translate(-50px, -100px) rotate(-30deg) scale(1.2); }
 }
 @keyframes float-triangle {
-  100% { transform: rotate(360deg) translate(50px, 20px); border-radius: 70% 30% 30% 70% / 70% 70% 30% 30%; }
+  100% { transform: rotate(360deg) translate(50px, 20px); }
 }
 
 ::-webkit-scrollbar {
