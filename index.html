@@ -20,6 +20,7 @@
   <div id="bg-mesh-a" class="bg-mesh-layer"></div>
   <div id="bg-mesh-b" class="bg-mesh-layer"></div>
   <div id="custom-wallpaper" class="custom-wallpaper" hidden></div>
+  <div id="ui-shadows" aria-hidden="true"></div>
 
   <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
     <defs id="m3-dynamic-defs">
@@ -625,6 +626,27 @@
               </div>
               <input type="range" class="pill-range" id="slider-corner-radius" min="0" max="32" step="4" value="16">
               <div class="setting-hints"><span>Sharp</span><span>16px</span><span>Round</span></div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Shadow strength</span>
+                  <span class="setting-desc">Drop shadows under the panels and dialogs. Off in performance mode</span>
+                </div>
+                <span class="setting-value" id="val-ui-depth">40%</span>
+              </div>
+              <input type="range" class="pill-range" id="slider-ui-depth" min="0" max="100" step="5" value="40">
+              <div class="setting-hints"><span>Off</span><span>40%</span><span>Dark</span></div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top">
+                <span class="setting-name">Shadow spread</span>
+                <span class="setting-value" id="val-ui-spread">40%</span>
+              </div>
+              <input type="range" class="pill-range" id="slider-ui-spread" min="0" max="100" step="5" value="40">
+              <div class="setting-hints"><span>Tight</span><span>40%</span><span>Wide</span></div>
             </div>
 
             <div class="setting-item">

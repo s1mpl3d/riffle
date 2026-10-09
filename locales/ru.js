@@ -576,5 +576,12 @@ window.RIFFLE_LOCALE = {
   "These lyrics are already in that language": "Этот текст уже на этом языке",
   "Could not translate the lyrics right now": "Сейчас не удалось перевести текст",
   "The wallpaper file could not be opened": "Не удалось открыть файл обоев",
-  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "Графическое ускорение не найдено, поэтому включён режим производительности. Его можно выключить в настройках"
+  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "Графическое ускорение не найдено, поэтому включён режим производительности. Его можно выключить в настройках",
+
+  // panel shadows
+  "Shadow strength": "Сила тени",
+  "Drop shadows under the panels and dialogs. Off in performance mode": "Тени под панелями и окнами. Выключены в режиме производительности",
+  "Shadow spread": "Размытие тени",
+  "Tight": "Узкая",
+  "Wide": "Широкая"
 };

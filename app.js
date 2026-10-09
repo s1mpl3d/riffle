@@ -247,6 +247,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savedScale = parseFloat(localStorage.getItem('devsize_ui_scale') || '100');
   applyScale(savedScale);
 
+  function reportUiScale() {
+    if (!window.electronAPI || !window.electronAPI.setUiScale) return;
+    const font = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--font-scale')) || 1;
+    window.electronAPI.setUiScale({ zoom: parseFloat(localStorage.getItem('devsize_ui_scale') || '100') / 100, font });
+  }
+
   function applyScale(scalePercent) {
     const factor = scalePercent / 100;
     document.documentElement.style.setProperty('--app-scale', factor.toString());
@@ -1313,12 +1319,66 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (el.sliderFontScale) el.sliderFontScale.value = savedFontScale;
   if (el.valFontScale) el.valFontScale.textContent = savedFontScale + '%';
   document.documentElement.style.setProperty('--font-scale', (parseInt(savedFontScale) / 100));
+  reportUiScale();
 
   const savedRadius = localStorage.getItem('riffle_corner_radius') || '16';
   if (el.sliderCornerRadius) el.sliderCornerRadius.value = savedRadius;
   if (el.valCornerRadius) el.valCornerRadius.textContent = savedRadius === '16' ? tr('Default') : `${savedRadius}px`;
   document.documentElement.style.setProperty('--md-shape-corner-l', `${savedRadius}px`);
   document.documentElement.style.setProperty('--md-shape-corner-m', `${Math.max(0, parseInt(savedRadius) - 4)}px`);
+
+  function bindShadowSlider(id, valId, cssVar, storageKey, onApply) {
+    const slider = document.getElementById(id);
+    const label = document.getElementById(valId);
+    const apply = (v) => {
+      document.documentElement.style.setProperty(cssVar, (v / 100).toString());
+      if (label) label.textContent = v === 0 && onApply ? tr('Off') : `${v}%`;
+      if (onApply) onApply(v);
+    };
+    const saved = parseInt(localStorage.getItem(storageKey) || '40', 10);
+    apply(saved);
+    if (!slider) return;
+    slider.value = saved;
+    slider.addEventListener('input', () => {
+      const v = parseInt(slider.value, 10);
+      apply(v);
+      localStorage.setItem(storageKey, String(v));
+    });
+    slider.addEventListener('dblclick', () => {
+      slider.value = 40;
+      slider.dispatchEvent(new Event('input'));
+    });
+  }
+  bindShadowSlider('slider-ui-depth', 'val-ui-depth', '--ui-depth', 'riffle_ui_depth',
+    (v) => document.documentElement.classList.toggle('flat-ui', v === 0));
+  bindShadowSlider('slider-ui-spread', 'val-ui-spread', '--ui-spread', 'riffle_ui_spread');
+
+  const uiShadowLayer = document.getElementById('ui-shadows');
+  if (uiShadowLayer && 'ResizeObserver' in window) {
+    const panels = ['.sidebar', '.main-content', '.right-panel', '.playbar', '.search-box', '.platform-pill-switch']
+      .map(sel => document.querySelector(sel)).filter(Boolean);
+    const boxes = panels.map(() => uiShadowLayer.appendChild(document.createElement('div')));
+    let queued = false;
+    const place = () => {
+      queued = false;
+      panels.forEach((p, i) => {
+        const r = p.getBoundingClientRect();
+        const b = boxes[i].style;
+        if (!r.width || !r.height) { b.display = 'none'; return; }
+        b.display = '';
+        b.left = r.left + 'px';
+        b.top = r.top + 'px';
+        b.width = r.width + 'px';
+        b.height = r.height + 'px';
+        b.borderRadius = getComputedStyle(p).borderRadius;
+      });
+    };
+    const schedule = () => { if (!queued) { queued = true; requestAnimationFrame(place); } };
+    const ro = new ResizeObserver(schedule);
+    panels.forEach(p => ro.observe(p));
+    window.addEventListener('resize', schedule);
+    document.addEventListener('transitionend', schedule, true);
+  }
 
   applyReducedMotionSetting();
 
@@ -5597,6 +5657,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       localStorage.setItem('devsize_ui_scale', val.toString());
       requestAnimationFrame(() => {
         applyScale(val);
+        reportUiScale();
         requestAnimationFrame(resizeCanvases);
       });
     });
@@ -5608,6 +5669,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (el.valFontScale) el.valFontScale.textContent = `${val}%`;
       document.documentElement.style.setProperty('--font-scale', (val / 100).toString());
       localStorage.setItem('riffle_font_scale', val.toString());
+      reportUiScale();
     });
   }
 

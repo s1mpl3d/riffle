@@ -574,5 +574,12 @@ window.RIFFLE_LOCALE = {
   "These lyrics are already in that language": "这些歌词已经是该语言",
   "Could not translate the lyrics right now": "暂时无法翻译歌词",
   "The wallpaper file could not be opened": "无法打开壁纸文件",
-  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "未检测到图形加速，因此已开启性能模式。可在设置中关闭"
+  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "未检测到图形加速，因此已开启性能模式。可在设置中关闭",
+
+  // panel shadows
+  "Shadow strength": "阴影强度",
+  "Drop shadows under the panels and dialogs. Off in performance mode": "面板和对话框下方的投影。性能模式下关闭",
+  "Shadow spread": "阴影扩散",
+  "Tight": "紧凑",
+  "Wide": "宽广"
 };

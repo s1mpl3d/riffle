@@ -574,5 +574,12 @@ window.RIFFLE_LOCALE = {
   "These lyrics are already in that language": "이 가사는 이미 해당 언어입니다",
   "Could not translate the lyrics right now": "지금은 가사를 번역할 수 없습니다",
   "The wallpaper file could not be opened": "배경화면 파일을 열 수 없습니다",
-  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "그래픽 가속을 찾지 못해 성능 모드를 켰습니다. 설정에서 끌 수 있습니다"
+  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "그래픽 가속을 찾지 못해 성능 모드를 켰습니다. 설정에서 끌 수 있습니다",
+
+  // panel shadows
+  "Shadow strength": "그림자 강도",
+  "Drop shadows under the panels and dialogs. Off in performance mode": "패널과 대화 상자 아래에 그림자를 표시합니다. 성능 모드에서는 꺼짐",
+  "Shadow spread": "그림자 퍼짐",
+  "Tight": "좁게",
+  "Wide": "넓게"
 };

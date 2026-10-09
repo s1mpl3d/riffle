@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isWindows: process.platform === 'win32',
   setMediaKeys: (enabled) => ipcRenderer.send('set-media-keys', enabled),
   mediaKeysArmed: () => ipcRenderer.send('media-keys-armed'),
+  setUiScale: (s) => ipcRenderer.send('ui-scale', s),
   toggleMini: () => ipcRenderer.send('mini-toggle'),
   miniState: (info) => ipcRenderer.send('mini-state', info),
   onMiniVisibility: (cb) => ipcRenderer.on('mini-visibility', (e, open) => cb(open)),

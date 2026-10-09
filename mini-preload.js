@@ -2,5 +2,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('miniAPI', {
   onState: (cb) => ipcRenderer.on('mini-state', (e, info) => cb(info)),
-  command: (cmd) => ipcRenderer.send('mini-command', cmd)
+  command: (cmd) => ipcRenderer.send('mini-command', cmd),
+  onScale: (cb) => ipcRenderer.on('mini-scale', (e, font) => cb(font))
 });

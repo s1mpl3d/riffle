@@ -574,5 +574,12 @@ window.RIFFLE_LOCALE = {
   "These lyrics are already in that language": "Questo testo è già in quella lingua",
   "Could not translate the lyrics right now": "Impossibile tradurre il testo in questo momento",
   "The wallpaper file could not be opened": "Impossibile aprire il file dello sfondo",
-  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "Nessuna accelerazione grafica trovata, quindi la modalità prestazioni è attiva. Puoi disattivarla nelle Impostazioni"
+  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "Nessuna accelerazione grafica trovata, quindi la modalità prestazioni è attiva. Puoi disattivarla nelle Impostazioni",
+
+  // panel shadows
+  "Shadow strength": "Intensità dell'ombra",
+  "Drop shadows under the panels and dialogs. Off in performance mode": "Ombre sotto i pannelli e le finestre. Disattivate in modalità prestazioni",
+  "Shadow spread": "Diffusione dell'ombra",
+  "Tight": "Stretta",
+  "Wide": "Ampia"
 };

@@ -574,5 +574,12 @@ window.RIFFLE_LOCALE = {
   "These lyrics are already in that language": "Dieser Songtext ist bereits in dieser Sprache",
   "Could not translate the lyrics right now": "Der Songtext konnte gerade nicht übersetzt werden",
   "The wallpaper file could not be opened": "Die Hintergrunddatei konnte nicht geöffnet werden",
-  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "Keine Grafikbeschleunigung gefunden, daher ist der Leistungsmodus an. Du kannst ihn in den Einstellungen ausschalten"
+  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "Keine Grafikbeschleunigung gefunden, daher ist der Leistungsmodus an. Du kannst ihn in den Einstellungen ausschalten",
+
+  // panel shadows
+  "Shadow strength": "Schattenstärke",
+  "Drop shadows under the panels and dialogs. Off in performance mode": "Schlagschatten unter den Bereichen und Dialogen. Im Leistungsmodus aus",
+  "Shadow spread": "Schattenweite",
+  "Tight": "Eng",
+  "Wide": "Weit"
 };

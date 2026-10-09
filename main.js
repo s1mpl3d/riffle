@@ -158,19 +158,33 @@ function runGUI() {
   let miniWindow = null;
   const miniStatePath = path.join(app.getPath('userData'), 'mini-state.json');
   const MINI_SIZE = { width: 460, height: 112 };
+  const uiScale = { zoom: 1, font: 1 };
 
-  function miniBounds() {
-    let saved = null;
-    try { saved = JSON.parse(fs.readFileSync(miniStatePath, 'utf8')); } catch (e) {}
-    const display = saved ? screen.getDisplayMatching({ ...MINI_SIZE, x: saved.x, y: saved.y }) : screen.getPrimaryDisplay();
+  function miniSize() {
+    return { width: Math.round(MINI_SIZE.width * uiScale.zoom), height: Math.round(MINI_SIZE.height * uiScale.zoom) };
+  }
+
+  function miniBounds(pos) {
+    let saved = pos || null;
+    if (!saved) try { saved = JSON.parse(fs.readFileSync(miniStatePath, 'utf8')); } catch (e) {}
+    const size = miniSize();
+    const display = saved ? screen.getDisplayMatching({ ...size, x: saved.x, y: saved.y }) : screen.getPrimaryDisplay();
     const area = display.workArea;
-    const x = saved ? saved.x : area.x + area.width - MINI_SIZE.width - 24;
-    const y = saved ? saved.y : area.y + area.height - MINI_SIZE.height - 24;
+    const x = saved ? saved.x : area.x + area.width - size.width - 24;
+    const y = saved ? saved.y : area.y + area.height - size.height - 24;
     return {
-      ...MINI_SIZE,
-      x: Math.min(Math.max(x, area.x), area.x + area.width - MINI_SIZE.width),
-      y: Math.min(Math.max(y, area.y), area.y + area.height - MINI_SIZE.height)
+      ...size,
+      x: Math.min(Math.max(x, area.x), area.x + area.width - size.width),
+      y: Math.min(Math.max(y, area.y), area.y + area.height - size.height)
     };
+  }
+
+  function applyMiniScale() {
+    if (!miniWindow || miniWindow.isDestroyed()) return;
+    miniWindow.webContents.setZoomFactor(uiScale.zoom);
+    miniWindow.webContents.send('mini-scale', uiScale.font);
+    const { x, y } = miniWindow.getBounds();
+    miniWindow.setBounds(miniBounds({ x, y }));
   }
 
   function notifyMiniVisibility(open) {
@@ -205,6 +219,7 @@ function runGUI() {
     });
     miniWindow.setAlwaysOnTop(true, 'floating');
     miniWindow.loadFile(path.join(__dirname, 'mini.html'));
+    miniWindow.webContents.on('did-finish-load', applyMiniScale);
     miniWindow.once('ready-to-show', () => {
       if (!miniWindow || miniWindow.isDestroyed()) return;
       miniWindow.showInactive();
@@ -589,6 +604,13 @@ function runGUI() {
       app.whenReady().then(() => {
         powerMonitor.on('resume', syncMediaKeys);
         powerMonitor.on('unlock-screen', syncMediaKeys);
+      });
+
+      ipcMain.on('ui-scale', (event, s) => {
+        const zoom = Number(s && s.zoom), font = Number(s && s.font);
+        if (zoom >= 0.5 && zoom <= 3) uiScale.zoom = zoom;
+        if (font >= 0.5 && font <= 3) uiScale.font = font;
+        applyMiniScale();
       });
 
       ipcMain.on('mini-toggle', toggleMiniWindow);

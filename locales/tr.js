@@ -574,5 +574,12 @@ window.RIFFLE_LOCALE = {
   "These lyrics are already in that language": "Bu sözler zaten o dilde",
   "Could not translate the lyrics right now": "Şarkı sözleri şu anda çevrilemedi",
   "The wallpaper file could not be opened": "Duvar kağıdı dosyası açılamadı",
-  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "Grafik hızlandırma bulunamadı, bu yüzden performans modu açık. Ayarlar'dan kapatabilirsiniz"
+  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "Grafik hızlandırma bulunamadı, bu yüzden performans modu açık. Ayarlar'dan kapatabilirsiniz",
+
+  // panel shadows
+  "Shadow strength": "Gölge yoğunluğu",
+  "Drop shadows under the panels and dialogs. Off in performance mode": "Paneller ve pencerelerin altında gölge. Performans modunda kapalı",
+  "Shadow spread": "Gölge yayılımı",
+  "Tight": "Dar",
+  "Wide": "Geniş"
 };

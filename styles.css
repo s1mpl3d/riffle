@@ -2712,7 +2712,7 @@ body.is-playing .shape-triangle {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: calc(24px * var(--font-scale, 1));
   flex-shrink: 0;
 }
 
@@ -3061,7 +3061,7 @@ body.is-playing .shape-triangle {
 .riffle-toast .toast-text {
   flex: 1;
   color: var(--md-sys-color-on-surface);
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale, 1));
   font-weight: 500;
   max-width: 420px;
   white-space: nowrap;
@@ -4843,7 +4843,7 @@ kbd {
   padding: 0 6px;
   border-radius: 7px;
   font-family: var(--font-family);
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   font-weight: 500;
   color: var(--md-sys-color-on-surface);
   background: var(--md-sys-color-surface-container-highest);
@@ -5225,9 +5225,9 @@ body.intensity-zero .lyric-word.active-word { opacity: 1; color: var(--md-sys-co
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
 .tv-cover[hidden] { display: none; }
-.tv-title { font-size: clamp(20px, 2.4vw, 34px); font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
-.tv-artist { font-size: clamp(14px, 1.4vw, 20px); opacity: 0.7; }
-.tv-progress { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 13px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.tv-title { font-size: calc(clamp(20px, 2.4vw, 34px) * var(--font-scale, 1)); font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.tv-artist { font-size: calc(clamp(14px, 1.4vw, 20px) * var(--font-scale, 1)); opacity: 0.7; }
+.tv-progress { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: calc(13px * var(--font-scale, 1)); font-variant-numeric: tabular-nums; opacity: 0.85; }
 .tv-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); overflow: hidden; cursor: pointer; }
 .tv-bar i { display: block; height: 100%; background: #fff; transform-origin: left; transform: scaleX(0); }
 .tv-buttons { display: flex; align-items: center; gap: 14px; }
@@ -5262,7 +5262,7 @@ body.is-playing .tv-icon-pause { display: block; }
 }
 .tv-lyrics .lyrics-container::-webkit-scrollbar { display: none; }
 .tv-lyrics .lyric-line {
-  font-size: clamp(24px, 3.4vw, 54px);
+  font-size: calc(clamp(24px, 3.4vw, 54px) * var(--font-scale, 1));
   font-weight: 800;
   line-height: 1.2;
   color: #fff;
@@ -5416,7 +5416,7 @@ body.dropping-files::after {
   place-items: center;
   box-sizing: border-box;
   border: 2px solid var(--md-sys-color-outline-variant);
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale, 1));
   font-weight: 700;
   line-height: 1;
 }
@@ -5444,3 +5444,23 @@ body.dropping-files::after {
 @keyframes tools-spin { to { transform: rotate(360deg); } }
 body.perf .tools-row[data-state="active"] .tools-row-icon { animation: none; }
 .setting-item[hidden] { display: none; }
+
+/* separate layer so panel repaints don't redraw the shadows */
+:root {
+  --ui-depth: 0.4;
+  --ui-spread: 0.4;
+  --ui-shadow: 0 calc(2px + 12px * var(--ui-spread)) calc(4px + 40px * var(--ui-spread)) rgba(0, 0, 0, calc(0.7 * var(--ui-depth)));
+}
+#ui-shadows {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  contain: strict;
+  will-change: transform;
+}
+#ui-shadows > div { position: absolute; box-shadow: var(--ui-shadow); }
+html.flat-ui #ui-shadows, body.perf #ui-shadows, body.tv-open #ui-shadows { display: none; }
+.modal-backdrop .dialog-card, .modal-backdrop .settings-card {
+  box-shadow: 0 calc(8px + 12px * var(--ui-spread)) calc(24px + 32px * var(--ui-spread)) rgba(0, 0, 0, calc(0.3 + 0.25 * var(--ui-depth)));
+}

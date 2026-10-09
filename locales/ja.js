@@ -574,5 +574,12 @@ window.RIFFLE_LOCALE = {
   "These lyrics are already in that language": "この歌詞はすでにその言語です",
   "Could not translate the lyrics right now": "現在、歌詞を翻訳できません",
   "The wallpaper file could not be opened": "壁紙ファイルを開けませんでした",
-  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "グラフィックアクセラレーションが見つからないため、パフォーマンスモードをオンにしました。設定でオフにできます"
+  "No graphics acceleration found, so performance mode is on. You can turn it off in Settings": "グラフィックアクセラレーションが見つからないため、パフォーマンスモードをオンにしました。設定でオフにできます",
+
+  // panel shadows
+  "Shadow strength": "影の濃さ",
+  "Drop shadows under the panels and dialogs. Off in performance mode": "パネルとダイアログの下に影を付けます。パフォーマンスモードではオフ",
+  "Shadow spread": "影の広がり",
+  "Tight": "狭い",
+  "Wide": "広い"
 };

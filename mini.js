@@ -146,5 +146,6 @@
 
   document.body.classList.add('paused');
   window.miniAPI.onState(render);
+  if (window.miniAPI.onScale) window.miniAPI.onScale((font) => document.documentElement.style.setProperty('--font-scale', String(font)));
   requestAnimationFrame(tick);
 })();
