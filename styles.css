@@ -51,6 +51,17 @@
   --transition-m3: 350ms cubic-bezier(0.2, 0.0, 0, 1.0);
   --transition-emphasized: 400ms cubic-bezier(0.2, 0, 0, 1);
   --transition-jelly: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --md-sys-color-background-solid: #121214;
+  --md-sys-color-surface-solid: #121214;
+  --md-sys-color-surface-dim-solid: #121214;
+  --md-sys-color-surface-bright-solid: #38383A;
+  --md-sys-color-surface-container-lowest-solid: #0D0E0F;
+  --md-sys-color-surface-container-low-solid: #1A1B1E;
+  --md-sys-color-surface-container-solid: #1E1F22;
+  --md-sys-color-surface-container-high-solid: #28292C;
+  --md-sys-color-surface-container-highest-solid: #333438;
+  --md-sys-color-on-surface-solid: #E6E6E8;
+  --md-sys-color-on-surface-variant-solid: #CAC4D0;
 }
 
 *, *::before, *::after {
@@ -4985,3 +4996,156 @@ kbd {
   .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; }
   .settings-nav-btn { height: 36px; padding: 0 14px; }
 }
+
+/* wallpaper sits between the mesh gradient and the panels */
+.custom-wallpaper {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.custom-wallpaper[hidden] { display: none; }
+.custom-wallpaper img, .custom-wallpaper video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: blur(var(--wallpaper-blur, 0px));
+  transform: scale(1.04);
+}
+.media-thumb.is-video { display: flex; align-items: center; justify-content: center; color: var(--md-sys-color-on-surface-variant); }
+
+/* banners: sizing chosen in settings, videos alongside images */
+.right-panel-banner .banner-image,
+.playlist-header-banner .banner-image {
+  background-size: var(--banner-size, cover);
+  transform: var(--banner-scale, scale(1.06));
+}
+.banner-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: var(--banner-object-fit, cover);
+  object-position: center top;
+  filter: blur(var(--banner-blur, 3px));
+  opacity: var(--banner-opacity, 1);
+  transform: var(--banner-scale, scale(1.06));
+  pointer-events: none;
+}
+
+/* background gradient: optional slow drift (few steps, cheap to redraw) and softness */
+body.mesh-drifting .bg-mesh-layer {
+  inset: -8%;
+  animation: mesh-drift var(--mesh-drift-duration, 60s) steps(240) infinite alternate;
+}
+body.mesh-soft .bg-mesh-layer { filter: blur(var(--mesh-blur, 0px)); }
+@keyframes mesh-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(4%, 3%) scale(1.06); }
+  66% { transform: translate(-3%, 5%) scale(1.03); }
+  100% { transform: translate(-5%, -2%) scale(1.08); }
+}
+
+.dialog-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dialog-head-row h3 { margin: 0; }
+.dialog-hint { margin: 0; font-size: calc(13px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface-variant); }
+.setting-item.flat { background: transparent; padding: 4px 0; }
+.mesh-editor-card { width: 380px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: 14px; }
+.mesh-stage {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  margin: 6px 0;
+}
+.mesh-stage-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--md-shape-corner-l);
+  background: var(--md-sys-color-background-solid);
+  outline: 1px solid var(--md-sys-color-outline-variant);
+}
+.mesh-pin {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: var(--md-sys-color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+  touch-action: none;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+.mesh-pin.second { background: var(--md-sys-color-tertiary); }
+.mesh-pin.dragging { cursor: grabbing; transform: scale(1.18); }
+.mesh-pin:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 3px; }
+
+/* arrow cursor everywhere except text fields */
+body.arrow-cursor, body.arrow-cursor *:not(input):not(textarea):not([contenteditable="true"]) { cursor: default !important; }
+
+/* performance mode: nothing that redraws large areas */
+body.perf .bg-mesh-layer { animation: none !important; filter: none !important; transition: none !important; }
+body.perf .shape { animation: none !important; }
+body.perf .banner-image, body.perf .banner-video, body.perf .custom-wallpaper img, body.perf .custom-wallpaper video { filter: none !important; }
+body.perf *, body.perf *::before, body.perf *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.perf #visualizer-canvas { visibility: hidden; }
+
+/* press feedback that survives very quick clicks, plus a ripple */
+button.pressed, .chip-btn.pressed, .mix-card.pressed, .track-row.pressed, .rail-icon-btn.pressed,
+.preset-chip.pressed, .nav-item.pressed, .settings-nav-btn.pressed {
+  transform: scale(0.96);
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.ripple-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.ripple-wave {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  transform: scale(0);
+  animation: ripple-out 0.5s cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes ripple-out {
+  0% { transform: scale(0); opacity: 0.16; }
+  100% { transform: scale(1); opacity: 0; }
+}
+/* the player floats over the page, so it stays nearly opaque when panels are see-through */
+body.translucent-ui .playbar { background: color-mix(in srgb, var(--md-sys-color-surface-container-high-solid) 94%, transparent) !important; }
+/* dialogs, menus and toasts stay solid when panels are see-through */
+.modal-backdrop, .m3-dropdown-menu, #toast-container {
+  --md-sys-color-background: var(--md-sys-color-background-solid);
+  --md-sys-color-surface: var(--md-sys-color-surface-solid);
+  --md-sys-color-surface-container-lowest: var(--md-sys-color-surface-container-lowest-solid);
+  --md-sys-color-surface-container-low: var(--md-sys-color-surface-container-low-solid);
+  --md-sys-color-surface-container: var(--md-sys-color-surface-container-solid);
+  --md-sys-color-surface-container-high: var(--md-sys-color-surface-container-high-solid);
+  --md-sys-color-surface-container-highest: var(--md-sys-color-surface-container-highest-solid);
+  --md-sys-color-on-surface: var(--md-sys-color-on-surface-solid);
+  --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-solid);
+}
+
+/* track editor: cover and banner rows under the text fields */
+.track-editor-card { width: 460px; max-width: calc(100vw - 32px); }
+.track-art-editor { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.track-art-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--md-shape-corner-m);
+  background: var(--md-sys-color-surface-container-high);
+}
+.track-art-row .setting-label-stack { flex: 1; min-width: 0; }
+.track-art-row .setting-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-art-row .btn-icon-pill:disabled { opacity: 0.35; pointer-events: none; }
+.download-track-preview #btn-download-edit-track { margin-left: auto; flex-shrink: 0; }

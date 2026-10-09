@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, screen, shell, Tray, Menu, nativeImage, globalShortcut } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, screen, shell, Tray, Menu, nativeImage, globalShortcut } = require('electron');
+const { pathToFileURL } = require('url');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -420,6 +421,31 @@ function runGUI() {
     });
 
       ipcMain.handle('get-server-port', () => serverPort);
+
+      // wallpapers, banners and covers are referenced where they are on disk, not copied
+      const MEDIA_FILTERS = {
+        image: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] }],
+        media: [{ name: 'Images and videos', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'mp4', 'webm'] }]
+      };
+      ipcMain.handle('pick-media', async (event, kind) => {
+        const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: MEDIA_FILTERS[kind] || MEDIA_FILTERS.media });
+        if (result.canceled || !result.filePaths[0]) return null;
+        return { url: pathToFileURL(result.filePaths[0]).href, name: path.basename(result.filePaths[0]) };
+      });
+
+      // true when Chromium draws with a software adapter (no driver, remote desktop, VM)
+      ipcMain.handle('gpu-is-software', async () => {
+        try {
+          const info = await app.getGPUInfo('basic');
+          const devices = info.gpuDevice || [];
+          const gpu = devices.find(d => d.active) || devices[0];
+          if (!gpu || !gpu.vendorId) return true;
+          if (gpu.vendorId === 0x1414 && gpu.deviceId === 0x8c) return true;
+          return /swiftshader|llvmpipe|software/i.test(JSON.stringify(info.auxAttributes || {}));
+        } catch (e) {
+          return false;
+        }
+      });
 
       ipcMain.on('discord-rpc-update', (event, trackInfo) => {
         discordRPC.updatePresence(trackInfo);

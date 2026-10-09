@@ -687,6 +687,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // panel and text opacity: surfaces and text colors become a mix with transparent, so a
+  // wallpaper can show through. The plain color stays in --*-solid for canvases and the mini player
+  const PANEL_TOKENS = ['background', 'surface', 'surface-dim', 'surface-bright', 'surface-container-lowest',
+    'surface-container-low', 'surface-container', 'surface-container-high', 'surface-container-highest'];
+  const TEXT_TOKENS = ['on-surface', 'on-surface-variant'];
+  const readPercent = (key, min) => {
+    const v = parseInt(localStorage.getItem(key) || '100', 10);
+    return Math.max(min, Math.min(100, Number.isFinite(v) ? v : 100));
+  };
+
+  function applyTranslucency() {
+    const root = document.documentElement;
+    const css = getComputedStyle(root);
+    const panel = readPercent('riffle_ui_alpha', 20);
+    const text = readPercent('riffle_text_alpha', 10);
+    const mix = (tokens, pct) => tokens.forEach(name => {
+      const prop = `--md-sys-color-${name}`;
+      let solid = root.style.getPropertyValue(prop).trim();
+      if (!solid || solid.startsWith('color-mix')) solid = root.style.getPropertyValue(prop + '-solid').trim() || css.getPropertyValue(prop + '-solid').trim();
+      if (!solid) return;
+      root.style.setProperty(prop + '-solid', solid);
+      root.style.setProperty(prop, pct >= 100 ? solid : `color-mix(in srgb, ${solid} ${pct}%, transparent)`);
+    });
+    mix(PANEL_TOKENS, panel);
+    mix(TEXT_TOKENS, text);
+    document.body.classList.toggle('translucent-ui', panel < 100);
+  }
+
   function extractDominantColor(imgSrc) {
     return new Promise((resolve) => {
       if (!imgSrc) return resolve('#6750A4');
@@ -720,7 +748,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function refreshCachedThemeColors() {
     const rootStyle = getComputedStyle(document.documentElement);
     cachedPrimaryColor = rootStyle.getPropertyValue('--md-sys-color-primary').trim() || '#6750A4';
-    cachedDimColor = rootStyle.getPropertyValue('--md-sys-color-surface-container-highest').trim() || '#E6E0E9';
+    cachedDimColor = rootStyle.getPropertyValue('--md-sys-color-surface-container-highest-solid').trim() || '#E6E0E9';
   }
 
   const coverAnalysisCache = new Map();
@@ -921,8 +949,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const accent2Rgba = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, ${a2})`;
 
     const gradient = `linear-gradient(to bottom, transparent 35%, var(--md-sys-color-background) 85%), ` +
-      `radial-gradient(ellipse at 20% 0%, ${accentRgba} 0%, transparent 70%), ` +
-      `radial-gradient(ellipse at 85% 5%, ${accent2Rgba} 0%, transparent 65%), ` +
+      `radial-gradient(ellipse at var(--mesh-p1x, 20%) var(--mesh-p1y, 0%), ${accentRgba} 0%, transparent 70%), ` +
+      `radial-gradient(ellipse at var(--mesh-p2x, 85%) var(--mesh-p2y, 5%), ${accent2Rgba} 0%, transparent 65%), ` +
       `var(--md-sys-color-background)`;
 
     const target = activeMeshLayer === 'a' ? meshB : meshA;
@@ -933,6 +961,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     current.style.opacity = '0';
 
     activeMeshLayer = activeMeshLayer === 'a' ? 'b' : 'a';
+    const stage = document.getElementById('mesh-stage-bg');
+    if (stage) stage.style.background = gradient;
   }
 
   let currentEffectiveMode = state.themeMode === 'auto' ? 'dark' : state.themeMode;
@@ -940,6 +970,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function applyTheme(hexColor, mode, intensity = state.themeIntensity, brightness = state.themeBrightness, accent2 = null, isAuto = false) {
     currentEffectiveMode = mode;
     generateM3Palette(hexColor, mode, intensity, brightness);
+    applyTranslucency();
     document.body.classList.toggle('theme-light', mode === 'light');
     document.body.classList.toggle('theme-dark', mode === 'dark');
     if (el.themeSwatches) {
@@ -980,8 +1011,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateThemeFromState() {
     if (state.themeMode === 'auto') {
-      if (state.currentTrack && state.currentTrack.thumbnail) {
-        analyzeCover(state.currentTrack.thumbnail).then(analysis => {
+      if (coverOf(state.currentTrack)) {
+        analyzeCover(coverOf(state.currentTrack)).then(analysis => {
           if (state.themeMode !== 'auto') return;
 
           const derivedMode = analysis.luminance > 0.58 ? 'light' : 'dark';
@@ -1397,35 +1428,75 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  function openTrackRenameDialog() {
-    const currentTitle = state.currentTrack?.title || '';
-    const currentArtist = state.currentTrack?.artist || '';
+  // edit dialog: title, artist, and an optional cover and banner of the song. Picks are only
+  // kept when the dialog is saved
+  let editTarget = null;
+  let editArt = {};
 
-    if (el.inputRenameTitle) el.inputRenameTitle.value = currentTitle;
-    if (el.inputRenameArtist) el.inputRenameArtist.value = currentArtist;
+  function renderTrackEditorArt() {
+    const cover = editArt.cover || (editTarget && editTarget.thumbnail) || '';
+    paintMediaThumb(document.getElementById('track-art-cover-thumb'), cover);
+    const coverStatus = document.getElementById('track-art-cover-status');
+    if (coverStatus) coverStatus.textContent = editArt.cover ? fileNameOf(editArt.cover) : tr('Original art');
+    const globalBanner = localStorage.getItem('riffle_banner_media') || '';
+    paintMediaThumb(document.getElementById('track-art-banner-thumb'), editArt.banner || globalBanner || cover);
+    const bannerStatus = document.getElementById('track-art-banner-status');
+    if (bannerStatus) bannerStatus.textContent = editArt.banner ? fileNameOf(editArt.banner) : tr('Same as every song');
+    const resetCover = document.getElementById('btn-reset-track-cover');
+    const resetBanner = document.getElementById('btn-reset-track-banner');
+    if (resetCover) resetCover.disabled = !editArt.cover;
+    if (resetBanner) resetBanner.disabled = !editArt.banner;
+  }
+
+  function openTrackRenameDialog(track) {
+    editTarget = (track && track.id) ? track : state.currentTrack;
+    if (!editTarget) {
+      showToast(tr('No track currently playing'), 'info');
+      return;
+    }
+    editArt = Object.assign({}, getTrackArt(editTarget));
+    if (el.inputRenameTitle) el.inputRenameTitle.value = editTarget.title || '';
+    if (el.inputRenameArtist) el.inputRenameArtist.value = editTarget.artist || '';
+    renderTrackEditorArt();
     if (el.renameTrackModal) openModal(el.renameTrackModal);
     if (el.inputRenameTitle) el.inputRenameTitle.focus();
   }
+  window.openTrackEditor = openTrackRenameDialog;
 
-  if (el.btnEditCurrentTrack) el.btnEditCurrentTrack.addEventListener('click', openTrackRenameDialog);
+  if (el.btnEditCurrentTrack) el.btnEditCurrentTrack.addEventListener('click', () => openTrackRenameDialog(state.currentTrack));
   if (el.btnCancelRenameTrack) el.btnCancelRenameTrack.addEventListener('click', () => closeModal(el.renameTrackModal));
+
+  [['btn-choose-track-cover', 'cover', 'image'], ['btn-choose-track-banner', 'banner', 'media']].forEach(([id, key, kind]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', async () => {
+      const picked = await pickMediaFile(kind);
+      if (!picked) return;
+      editArt[key] = picked.url;
+      renderTrackEditorArt();
+    });
+  });
+  [['btn-reset-track-cover', 'cover'], ['btn-reset-track-banner', 'banner']].forEach(([id, key]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', () => { delete editArt[key]; renderTrackEditorArt(); });
+  });
 
   if (el.btnConfirmRenameTrack) {
     el.btnConfirmRenameTrack.addEventListener('click', () => {
+      const target = editTarget;
+      if (!target) return;
       const newTitle = el.inputRenameTitle ? el.inputRenameTitle.value.trim() || tr('Untitled track') : tr('Untitled track');
       const newArtist = el.inputRenameArtist ? el.inputRenameArtist.value.trim() || tr('Unknown artist') : tr('Unknown artist');
+      const canonical = getTrackCanonicalId(target);
 
-      if (state.currentTrack) {
-        state.currentTrack.title = newTitle;
-        state.currentTrack.artist = newArtist;
-      }
+      // art is keyed by id, so store it before anything else changes
+      setTrackArt(target, { cover: editArt.cover || null, banner: editArt.banner || null });
+      if (editArt.cover) coverAnalysisCache.delete(editArt.cover);
 
-      updateNowPlayingUI(state.currentTrack);
-
-      const updateArr = (arr) => {
+      const matches = (t) => t && getTrackCanonicalId(t) === canonical;
+      const renameIn = (arr) => {
         let updated = false;
-        arr.forEach(t => {
-          if (t.id === state.currentTrack?.id) {
+        (arr || []).forEach(t => {
+          if (matches(t)) {
             t.title = newTitle;
             t.artist = newArtist;
             updated = true;
@@ -1433,14 +1504,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         return updated;
       };
+      target.title = newTitle;
+      target.artist = newArtist;
+      const isCurrent = matches(state.currentTrack);
+      if (isCurrent && state.currentTrack !== target) {
+        state.currentTrack.title = newTitle;
+        state.currentTrack.artist = newArtist;
+      }
 
-      if (updateArr(state.history)) localStorage.setItem('devsize_history', JSON.stringify(state.history));
-      if (updateArr(state.favorites)) localStorage.setItem('devsize_favorites', JSON.stringify(state.favorites));
-      if (updateArr(state.queue)) renderQueueView();
+      if (renameIn(state.history)) localStorage.setItem('devsize_history', JSON.stringify(state.history));
+      if (renameIn(state.favorites)) localStorage.setItem('devsize_favorites', JSON.stringify(state.favorites));
+      let playlistsChanged = false;
+      (state.playlists || []).forEach(pl => { if (renameIn(pl.tracks)) playlistsChanged = true; });
+      if (playlistsChanged) localStorage.setItem('devsize_playlists', JSON.stringify(state.playlists));
+      if (renameIn(state.queue)) renderQueueView();
 
-      sendStateToServer();
-      sendDiscordRpcUpdate(state.currentTrack, state.isPlaying);
-      updateMediaSession();
+      document.querySelectorAll(`.track-row[data-canonical-id="${CSS.escape(canonical)}"]`).forEach(row => {
+        const img = row.querySelector('.track-row-thumb');
+        if (img) { img.src = smallThumb(coverOf(target)); img.style.visibility = ''; }
+        const t = row.querySelector('.track-row-title');
+        const a = row.querySelector('.track-row-artist');
+        if (t) t.textContent = newTitle;
+        if (a) a.textContent = newArtist;
+      });
+
+      if (isCurrent) {
+        updateNowPlayingUI(state.currentTrack);
+        sendStateToServer();
+        sendDiscordRpcUpdate(state.currentTrack, state.isPlaying);
+        sendMiniState(true);
+      }
 
       if (el.renameTrackModal) closeModal(el.renameTrackModal);
       showToast(tr('Track info updated'), 'info');
@@ -1747,18 +1840,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.electronAPI.miniState({
       title: t ? t.title || '' : '',
       artist: t ? t.artist || '' : '',
-      thumbnail: t ? t.thumbnail || '' : '',
+      thumbnail: coverOf(t),
       isPlaying: Boolean(a && !a.paused),
       currentTime: a ? a.currentTime || 0 : 0,
       duration: a && isFinite(a.duration) ? a.duration : (t ? t.duration || 0 : 0),
       isFavorite: Boolean(t && state.favorites && state.favorites.some(f => isSameTrack(f, t))),
       accent: css.getPropertyValue('--md-sys-color-primary').trim(),
       onAccent: css.getPropertyValue('--md-sys-color-on-primary').trim(),
-      surface: css.getPropertyValue('--md-sys-color-surface-container').trim()
+      surface: css.getPropertyValue('--md-sys-color-surface-container-solid').trim()
     });
   }
 
   let animationFrameId = null;
+  // read every frame, so kept as plain booleans instead of body class lookups
+  const uiFlags = { perf: false, flatScrubber: false };
 
   function initAudioContext() {
     audioEngine.init(el.nativeAudio, el.tailAudio);
@@ -1862,7 +1957,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!state.isWindowVisible) return;
       animationFrameId = requestAnimationFrame(renderLoop);
 
-      if (timestamp - lastFrameTime < 28) return;
+      if (timestamp - lastFrameTime < (uiFlags.perf ? 33 : 28)) return;
       lastFrameTime = timestamp;
 
       if (!state.isPlaying && !isDraggingScrubber) {
@@ -1872,6 +1967,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         hasDrawnPausedFrame = false;
       }
 
+      if (uiFlags.perf) {
+        if (el.coverContainer && el.coverContainer.style.transform) el.coverContainer.style.transform = '';
+        if (miniCtx) miniCtx.clearRect(0, 0, 60, 24);
+      } else {
       audioEngine.getFrequencyData(freqData);
       audioEngine.getTimeDomainData(timeData);
 
@@ -1909,6 +2008,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             miniCtx.fill();
           }
         }
+      }
       }
 
       let scrubberCanvas = document.getElementById('squiggly-canvas');
@@ -1986,10 +2086,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           sCtx.lineJoin = 'round';
           sCtx.strokeStyle = primaryColor;
 
-          const step = 2;
+          const step = uiFlags.flatScrubber ? waveEnd - waveStart : 2;
           for (let x = waveStart; x <= waveEnd; x += step) {
             const angle = scrubPhase - (waveEnd - x) * k;
-            const y = centerY + Math.sin(angle) * 5;
+            const y = uiFlags.flatScrubber ? centerY : centerY + Math.sin(angle) * 5;
             if (x === waveStart) {
               sCtx.moveTo(x, y);
             } else {
@@ -1997,7 +2097,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
           }
 
-          const finalY = centerY + Math.sin(scrubPhase) * 5;
+          const finalY = uiFlags.flatScrubber ? centerY : centerY + Math.sin(scrubPhase) * 5;
           sCtx.lineTo(waveEnd, finalY);
           sCtx.stroke();
         }
@@ -2013,6 +2113,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function handleVisibilityChange(visible) {
     state.isWindowVisible = visible;
+    // hidden or minimized: wallpaper and banner videos stop decoding
+    document.querySelectorAll('#custom-wallpaper video, video.banner-video').forEach(v => {
+      if (visible && !uiFlags.perf) v.play().catch(() => {});
+      else v.pause();
+    });
     if (!visible) {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
       document.body.classList.add('app-paused');
@@ -2095,14 +2200,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.playbarTitle) el.playbarTitle.dataset.origTitle = track.title || '';
     if (el.playbarArtist) el.playbarArtist.textContent = track.artist || tr('Unknown artist');
 
-    if (track.thumbnail) {
+    const cover = coverOf(track);
+    if (cover) {
       if (el.playbarArtwork) {
-        el.playbarArtwork.src = smallThumb(track.thumbnail);
+        el.playbarArtwork.src = smallThumb(cover);
         el.playbarArtwork.style.display = 'block';
       }
       if (el.artworkFallback) el.artworkFallback.style.display = 'none';
       if (el.rightPanelCover) {
-        el.rightPanelCover.src = track.thumbnail;
+        el.rightPanelCover.src = cover;
         el.rightPanelCover.style.display = 'block';
       }
       if (el.rightPanelFallback) el.rightPanelFallback.style.display = 'none';
@@ -2116,12 +2222,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.rightPanelTitle) el.rightPanelTitle.textContent = track.title || tr('Untitled');
     if (el.rightPanelArtist) el.rightPanelArtist.textContent = track.artist || tr('Unknown artist');
 
-    updateRightPanelBanner(track.thumbnail);
+    updateRightPanelBanner(cover);
     updateFavoriteIcon();
     applyVisualEffects();
     highlightPlayingRow();
     updateThemeFromState();
     updateMediaSession();
+  }
+
+  const VIDEO_URL_RE = /\.(mp4|webm|m4v)(?:$|[?#])/i;
+  const isVideoUrl = (url) => VIDEO_URL_RE.test(url || '');
+
+  // a banner shows either a css background image or a muted looping video
+  function setBannerSource(banner, url, onError) {
+    const bannerImg = banner.querySelector('.banner-image') || banner;
+    let video = banner.querySelector('video.banner-video');
+    if (isVideoUrl(url)) {
+      bannerImg.style.backgroundImage = 'none';
+      if (!video) {
+        video = document.createElement('video');
+        video.className = 'banner-video';
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        banner.appendChild(video);
+      }
+      video.onerror = onError;
+      if (video.getAttribute('src') !== url) video.src = url;
+      if (state.isWindowVisible && !uiFlags.perf) video.play().catch(() => {});
+      return;
+    }
+    if (video) { video.removeAttribute('src'); video.load(); video.remove(); }
+    bannerImg.style.backgroundImage = url ? `url("${url}")` : 'none';
+  }
+
+  function bannerSourceFor(track, thumbUrl) {
+    return (track && getTrackArt(track).banner) || localStorage.getItem('riffle_banner_media') || thumbUrl || '';
   }
 
   function updateRightPanelBanner(thumbUrl) {
@@ -2132,30 +2268,39 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     banner.style.display = '';
-    const bannerImg = banner.querySelector('.banner-image') || banner;
-    if (!thumbUrl) {
+    const track = state.currentTrack;
+    const source = bannerSourceFor(track, thumbUrl);
+    const fail = () => {
+      // a custom file that was moved or deleted falls back to the album art
+      if (track && getTrackArt(track).banner) { setTrackArt(track, { banner: null }); updateRightPanelBanner(thumbUrl); }
+      else banner.style.opacity = '0';
+    };
+    if (!source) {
       banner.classList.add('fading-out');
       setTimeout(() => {
-        bannerImg.style.backgroundImage = 'none';
+        setBannerSource(banner, '');
         banner.style.opacity = '0';
         banner.classList.remove('fading-out');
       }, 300);
       return;
     }
+    if (isVideoUrl(source)) {
+      setBannerSource(banner, source, fail);
+      banner.style.opacity = '1';
+      return;
+    }
 
     const img = new Image();
-    img.src = thumbUrl;
+    img.src = source;
     img.onload = () => {
       banner.classList.add('fading-out');
       setTimeout(() => {
-        bannerImg.style.backgroundImage = `url("${thumbUrl}")`;
+        setBannerSource(banner, source);
         banner.classList.remove('fading-out');
         banner.style.opacity = '1';
       }, 150);
     };
-    img.onerror = () => {
-      banner.style.opacity = '0';
-    };
+    img.onerror = fail;
   }
 
   function updatePlaylistDetailBanner(thumbUrl) {
@@ -2166,21 +2311,49 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     banner.style.display = '';
-    const bannerImg = banner.querySelector('.banner-image') || banner;
-    if (!thumbUrl) {
+    const source = localStorage.getItem('riffle_banner_media') || thumbUrl || '';
+    if (!source) {
       banner.style.opacity = '0';
-      bannerImg.style.backgroundImage = 'none';
+      setBannerSource(banner, '');
+      return;
+    }
+    if (isVideoUrl(source)) {
+      setBannerSource(banner, source, () => { banner.style.opacity = '0'; });
+      banner.style.opacity = '1';
       return;
     }
     const img = new Image();
-    img.src = thumbUrl;
+    img.src = source;
     img.onload = () => {
-      bannerImg.style.backgroundImage = `url("${thumbUrl}")`;
+      setBannerSource(banner, source);
       banner.style.opacity = '1';
     };
     img.onerror = () => {
       banner.style.opacity = '0';
     };
+  }
+
+  // custom cover and banner per song, keyed like favorites so it follows the song everywhere
+  let trackArtMap = null;
+  function readTrackArtMap() {
+    if (!trackArtMap) {
+      try { trackArtMap = JSON.parse(localStorage.getItem('riffle_track_art') || '{}') || {}; } catch (e) { trackArtMap = {}; }
+    }
+    return trackArtMap;
+  }
+  const coverOf = (track) => (track && (getTrackArt(track).cover || track.thumbnail)) || '';
+  function getTrackArt(track) {
+    const id = track ? getTrackCanonicalId(track) : '';
+    return (id && readTrackArtMap()[id]) || {};
+  }
+  function setTrackArt(track, patch) {
+    const id = track ? getTrackCanonicalId(track) : '';
+    if (!id) return;
+    const all = readTrackArtMap();
+    const next = Object.assign({}, all[id], patch);
+    Object.keys(next).forEach(k => { if (!next[k]) delete next[k]; });
+    if (Object.keys(next).length) all[id] = next; else delete all[id];
+    localStorage.setItem('riffle_track_art', JSON.stringify(all));
   }
 
   function getTrackCanonicalId(track) {
@@ -3332,7 +3505,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       row.innerHTML = `
       <span class="track-row-index">${idx + 1}</span>
-      <img class="track-row-thumb" src="${smallThumb(track.thumbnail)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
+      <img class="track-row-thumb" src="${smallThumb(coverOf(track))}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
       <div class="track-row-info">
       <span class="track-row-title">${(track.title || 'untitled')}</span>
       <span class="track-row-artist" title="${tr('view artist profile')}">${(track.artist || tr('unknown artist'))}</span>
@@ -3872,6 +4045,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function getTrackThumbUrl(track) {
     if (!track) return '';
+    const custom = getTrackArt(track).cover;
+    if (custom) return custom;
     if (track.localThumbnail) return track.localThumbnail;
     if (track.id && state.serverPort) {
       const cleanId = String(track.id).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -4638,7 +4813,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (item.kind === 'track') {
         const t = item.track;
-        const thumb = t.localThumbnail || smallThumb(t.thumbnail);
+        const thumb = getTrackArt(t).cover || t.localThumbnail || smallThumb(t.thumbnail);
         html += `<div class="search-suggest-item is-track" role="option" data-index="${i}">
           <span class="search-suggest-thumb">${thumb ? `<img src="${escapeSuggestHtml(thumb)}" alt="" loading="lazy">` : ''}</span>
           <span class="search-suggest-text"><span class="search-suggest-main">${escapeSuggestHtml(t.title)}</span><span class="search-suggest-sub">${escapeSuggestHtml(t.artist)}</span></span>
@@ -5462,7 +5637,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (bannerR) bannerR.style.display = newVal ? '' : 'none';
         if (bannerP) bannerP.style.display = newVal ? '' : 'none';
         if (newVal && state.currentTrack) {
-          updateRightPanelBanner(state.currentTrack.thumbnail);
+          updateRightPanelBanner(coverOf(state.currentTrack));
         }
       } else if (key === 'karaoke_words') {
         renderLyricsView();
@@ -6085,7 +6260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           pill.className = 'quick-play-pill';
           pill.style.animationDelay = (idx * 60) + 'ms';
           pill.innerHTML = `
-          <img class="quick-play-pill-img" src="${smallThumb(t.thumbnail)}" alt="" decoding="async" onerror="this.style.visibility='hidden'">
+          <img class="quick-play-pill-img" src="${smallThumb(coverOf(t))}" alt="" decoding="async" onerror="this.style.visibility='hidden'">
           <div class="quick-play-pill-text">
           <span class="quick-play-pill-title">${(t.title || 'untitled')}</span>
           <span class="quick-play-pill-artist">${(t.artist || '')}</span>
@@ -6183,7 +6358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             card.dataset.index = String(idx);
             card.innerHTML = `
               <div class="my-wave-track-cover-wrap">
-                <img class="my-wave-track-cover" src="${track.thumbnail || ''}" alt="" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'280\\' height=\\'280\\' fill=\\'%23555\\'><rect width=\\'100%\\' height=\\'100%\\'/></svg>'">
+                <img class="my-wave-track-cover" src="${coverOf(track)}" alt="" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'280\\' height=\\'280\\' fill=\\'%23555\\'><rect width=\\'100%\\' height=\\'100%\\'/></svg>'">
                 <div class="my-wave-track-play-overlay">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                 </div>
@@ -6327,7 +6502,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rootStyle = getComputedStyle(document.documentElement);
     return {
       primary: rootStyle.getPropertyValue('--md-sys-color-primary').trim() || '#6750A4',
-      dim: rootStyle.getPropertyValue('--md-sys-color-surface-container-highest').trim() || '#E6E0E9',
+      dim: rootStyle.getPropertyValue('--md-sys-color-surface-container-highest-solid').trim() || '#E6E0E9',
       warn: '#F9A825',
       error: rootStyle.getPropertyValue('--md-sys-color-error').trim() || '#B3261E'
     };
@@ -6793,6 +6968,382 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  const btnDownloadEditTrack = document.getElementById('btn-download-edit-track');
+  if (btnDownloadEditTrack) btnDownloadEditTrack.addEventListener('click', () => {
+    const track = trackToDownload;
+    if (el.downloadModal) closeModal(el.downloadModal);
+    if (track) setTimeout(() => openTrackRenameDialog(track), 180);
+  });
+
+  // ---- appearance -------------------------------------------------------------------------
+
+  // panel and text opacity sliders; double-click puts them back to 100%
+  function bindOpacitySlider(sliderId, valueId, key, min) {
+    const slider = document.getElementById(sliderId);
+    const value = document.getElementById(valueId);
+    if (!slider) return;
+    const show = (v) => { slider.value = v; if (value) value.textContent = `${v}%`; };
+    show(readPercent(key, min));
+    const set = (v) => {
+      show(v);
+      localStorage.setItem(key, String(v));
+      applyTranslucency();
+    };
+    slider.addEventListener('input', () => set(parseInt(slider.value, 10)));
+    slider.addEventListener('dblclick', () => set(100));
+  }
+  bindOpacitySlider('slider-ui-alpha', 'val-ui-alpha', 'riffle_ui_alpha', 20);
+  bindOpacitySlider('slider-text-alpha', 'val-text-alpha', 'riffle_text_alpha', 10);
+
+  const fileNameOf = (url) => {
+    try { return decodeURIComponent(String(url).split(/[\\/]/).pop().split(/[?#]/)[0]); } catch (e) { return ''; }
+  };
+
+  // small preview in settings; videos get an icon instead of a second decoder
+  function paintMediaThumb(node, url) {
+    if (!node) return;
+    node.innerHTML = '';
+    node.style.backgroundImage = '';
+    if (!url) return;
+    if (isVideoUrl(url)) {
+      node.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg>';
+      node.classList.add('is-video');
+    } else {
+      node.classList.remove('is-video');
+      node.style.backgroundImage = `url("${url}")`;
+    }
+  }
+
+  // wallpaper: an image, gif or muted video behind the panels
+  const wallpaper = document.getElementById('custom-wallpaper');
+  function renderWallpaper() {
+    const url = localStorage.getItem('riffle_wallpaper') || '';
+    const opacity = readPercent('riffle_wallpaper_opacity', 10);
+    const blur = Math.max(0, Math.min(40, parseInt(localStorage.getItem('riffle_wallpaper_blur') || '0', 10) || 0));
+    const sliderOpacity = document.getElementById('slider-bg-opacity');
+    const sliderBlur = document.getElementById('slider-bg-blur');
+    if (sliderOpacity) sliderOpacity.value = opacity;
+    if (sliderBlur) sliderBlur.value = blur;
+    const valOpacity = document.getElementById('val-bg-opacity');
+    const valBlur = document.getElementById('val-bg-blur');
+    if (valOpacity) valOpacity.textContent = `${opacity}%`;
+    if (valBlur) valBlur.textContent = `${blur}px`;
+    paintMediaThumb(document.getElementById('custom-bg-thumb'), url);
+    const status = document.getElementById('custom-bg-status');
+    if (status) status.textContent = url ? fileNameOf(url) : tr('None. PNG, JPG, WebP, GIF, MP4 or WebM');
+    document.querySelectorAll('.custom-bg-dependent').forEach(n => n.classList.toggle('is-disabled', !url));
+    const btnRemove = document.getElementById('btn-remove-custom-bg');
+    if (btnRemove) btnRemove.disabled = !url;
+    document.body.classList.toggle('has-wallpaper', Boolean(url));
+    if (!wallpaper) return;
+    if (!url) {
+      const old = wallpaper.querySelector('video');
+      if (old) { old.removeAttribute('src'); old.load(); }
+      wallpaper.innerHTML = '';
+      wallpaper.hidden = true;
+      return;
+    }
+    wallpaper.hidden = false;
+    wallpaper.style.opacity = String(opacity / 100);
+    wallpaper.style.setProperty('--wallpaper-blur', `${blur}px`);
+    const tag = isVideoUrl(url) ? 'VIDEO' : 'IMG';
+    const current = wallpaper.firstElementChild;
+    if (current && current.tagName === tag && current.getAttribute('src') === url) return;
+    wallpaper.innerHTML = '';
+    const media = document.createElement(tag.toLowerCase());
+    media.onerror = () => {
+      showToast(tr('The wallpaper file could not be opened'), 'error');
+      localStorage.removeItem('riffle_wallpaper');
+      renderWallpaper();
+    };
+    if (tag === 'VIDEO') {
+      media.muted = true;
+      media.loop = true;
+      media.playsInline = true;
+      media.src = url;
+      if (state.isWindowVisible && !uiFlags.perf) media.play().catch(() => {});
+    } else {
+      media.decoding = 'async';
+      media.alt = '';
+      media.src = url;
+    }
+    wallpaper.appendChild(media);
+  }
+
+  async function pickMediaFile(kind) {
+    if (!window.electronAPI || !window.electronAPI.pickMedia) return null;
+    try { return await window.electronAPI.pickMedia(kind); } catch (e) { return null; }
+  }
+
+  const btnChooseWallpaper = document.getElementById('btn-choose-custom-bg');
+  if (btnChooseWallpaper) btnChooseWallpaper.addEventListener('click', async () => {
+    const picked = await pickMediaFile('media');
+    if (!picked) return;
+    localStorage.setItem('riffle_wallpaper', picked.url);
+    // a wallpaper is pointless behind fully opaque panels
+    if (readPercent('riffle_ui_alpha', 20) === 100) {
+      localStorage.setItem('riffle_ui_alpha', '70');
+      const slider = document.getElementById('slider-ui-alpha');
+      const value = document.getElementById('val-ui-alpha');
+      if (slider) slider.value = 70;
+      if (value) value.textContent = '70%';
+      applyTranslucency();
+    }
+    renderWallpaper();
+  });
+  const btnRemoveWallpaper = document.getElementById('btn-remove-custom-bg');
+  if (btnRemoveWallpaper) btnRemoveWallpaper.addEventListener('click', () => {
+    localStorage.removeItem('riffle_wallpaper');
+    renderWallpaper();
+  });
+  [['slider-bg-opacity', 'riffle_wallpaper_opacity'], ['slider-bg-blur', 'riffle_wallpaper_blur']].forEach(([id, key]) => {
+    const slider = document.getElementById(id);
+    if (slider) slider.addEventListener('input', () => {
+      localStorage.setItem(key, slider.value);
+      renderWallpaper();
+    });
+  });
+  renderWallpaper();
+
+  // banner media for every song (a song's own banner still wins) and how it is sized
+  function renderBannerMediaSetting() {
+    const url = localStorage.getItem('riffle_banner_media') || '';
+    paintMediaThumb(document.getElementById('banner-media-thumb'), url);
+    const status = document.getElementById('banner-media-status');
+    if (status) status.textContent = url ? fileNameOf(url) : tr('Album art of the current song');
+    const btnReset = document.getElementById('btn-reset-banner-media');
+    if (btnReset) btnReset.disabled = !url;
+  }
+  function refreshBanners() {
+    const thumb = state.currentTrack ? getTrackThumbUrl(state.currentTrack) : '';
+    updateRightPanelBanner(thumb);
+    if (state.currentView === 'playlist-detail' && state.currentPlaylistId) {
+      const pl = state.playlists.find(p => p.id === state.currentPlaylistId);
+      const first = pl && pl.tracks && pl.tracks[0];
+      updatePlaylistDetailBanner(first ? getTrackThumbUrl(first) : '');
+    }
+  }
+  const btnChooseBanner = document.getElementById('btn-choose-banner-media');
+  if (btnChooseBanner) btnChooseBanner.addEventListener('click', async () => {
+    const picked = await pickMediaFile('media');
+    if (!picked) return;
+    localStorage.setItem('riffle_banner_media', picked.url);
+    renderBannerMediaSetting();
+    refreshBanners();
+  });
+  const btnResetBanner = document.getElementById('btn-reset-banner-media');
+  if (btnResetBanner) btnResetBanner.addEventListener('click', () => {
+    localStorage.removeItem('riffle_banner_media');
+    renderBannerMediaSetting();
+    refreshBanners();
+  });
+  renderBannerMediaSetting();
+
+  const BANNER_FITS = {
+    fit: { size: 'contain', object: 'contain', scale: 'none' },
+    zoom: { size: 'cover', object: 'cover', scale: 'scale(1.06)' },
+    stretch: { size: '100% 100%', object: 'fill', scale: 'none' }
+  };
+  function applyBannerFit(fit) {
+    const f = BANNER_FITS[fit] ? fit : 'zoom';
+    const root = document.documentElement;
+    root.style.setProperty('--banner-size', BANNER_FITS[f].size);
+    root.style.setProperty('--banner-object-fit', BANNER_FITS[f].object);
+    root.style.setProperty('--banner-scale', BANNER_FITS[f].scale);
+    document.querySelectorAll('#banner-fit-toggle [data-fit]').forEach(b => b.classList.toggle('active', b.dataset.fit === f));
+  }
+  const bannerFitToggle = document.getElementById('banner-fit-toggle');
+  if (bannerFitToggle) bannerFitToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-fit]');
+    if (!btn) return;
+    localStorage.setItem('riffle_banner_fit', btn.dataset.fit);
+    applyBannerFit(btn.dataset.fit);
+  });
+  applyBannerFit(localStorage.getItem('riffle_banner_fit') || 'zoom');
+
+  // background gradient editor: where the two accent lights sit, how they drift and how soft they are
+  const MESH_DEFAULT = { p1: { x: 20, y: 0 }, p2: { x: 85, y: 5 }, drift: 0, soft: 0 };
+  const clampPct = (v, d) => (Number.isFinite(Number(v)) ? Math.max(0, Math.min(100, Math.round(Number(v)))) : d);
+  function readMeshConfig() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('riffle_mesh_cfg') || 'null');
+      if (!raw || !raw.p1 || !raw.p2) return JSON.parse(JSON.stringify(MESH_DEFAULT));
+      return {
+        p1: { x: clampPct(raw.p1.x, 20), y: clampPct(raw.p1.y, 0) },
+        p2: { x: clampPct(raw.p2.x, 85), y: clampPct(raw.p2.y, 5) },
+        drift: Math.max(0, Math.min(10, parseInt(raw.drift, 10) || 0)),
+        soft: Math.max(0, Math.min(60, parseInt(raw.soft, 10) || 0))
+      };
+    } catch (e) {
+      return JSON.parse(JSON.stringify(MESH_DEFAULT));
+    }
+  }
+  let meshConfig = readMeshConfig();
+  function applyMeshConfig(save) {
+    const root = document.documentElement;
+    root.style.setProperty('--mesh-p1x', `${meshConfig.p1.x}%`);
+    root.style.setProperty('--mesh-p1y', `${meshConfig.p1.y}%`);
+    root.style.setProperty('--mesh-p2x', `${meshConfig.p2.x}%`);
+    root.style.setProperty('--mesh-p2y', `${meshConfig.p2.y}%`);
+    root.style.setProperty('--mesh-blur', `${meshConfig.soft}px`);
+    // drift 1 is a lazy 90 s loop, 10 a lively 18 s one
+    root.style.setProperty('--mesh-drift-duration', `${Math.round(98 - meshConfig.drift * 8)}s`);
+    document.body.classList.toggle('mesh-drifting', meshConfig.drift > 0);
+    document.body.classList.toggle('mesh-soft', meshConfig.soft > 0);
+    const pin1 = document.getElementById('mesh-pin-1');
+    const pin2 = document.getElementById('mesh-pin-2');
+    if (pin1) { pin1.style.left = `${meshConfig.p1.x}%`; pin1.style.top = `${meshConfig.p1.y}%`; }
+    if (pin2) { pin2.style.left = `${meshConfig.p2.x}%`; pin2.style.top = `${meshConfig.p2.y}%`; }
+    const speed = document.getElementById('slider-mesh-speed');
+    const blur = document.getElementById('slider-mesh-blur');
+    if (speed) speed.value = meshConfig.drift;
+    if (blur) blur.value = meshConfig.soft;
+    const valSpeed = document.getElementById('val-mesh-speed');
+    const valBlur = document.getElementById('val-mesh-blur');
+    if (valSpeed) valSpeed.textContent = meshConfig.drift ? String(meshConfig.drift) : tr('Still');
+    if (valBlur) valBlur.textContent = `${meshConfig.soft}px`;
+    if (save) localStorage.setItem('riffle_mesh_cfg', JSON.stringify(meshConfig));
+  }
+  applyMeshConfig(false);
+
+  const meshModal = document.getElementById('mesh-editor-modal');
+  const btnEditMesh = document.getElementById('btn-configure-mesh');
+  if (btnEditMesh && meshModal) btnEditMesh.addEventListener('click', () => {
+    const stageBg = document.getElementById('mesh-stage-bg');
+    const live = document.getElementById(activeMeshLayer === 'a' ? 'bg-mesh-a' : 'bg-mesh-b');
+    if (stageBg && live) stageBg.style.background = live.style.background;
+    applyMeshConfig(false);
+    openModal(meshModal);
+  });
+  ['btn-close-mesh-editor', 'btn-done-mesh'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', () => closeModal(meshModal));
+  });
+  if (meshModal) meshModal.addEventListener('click', (e) => { if (e.target === meshModal) closeModal(meshModal); });
+  const btnResetMesh = document.getElementById('btn-reset-mesh');
+  if (btnResetMesh) btnResetMesh.addEventListener('click', () => {
+    meshConfig = JSON.parse(JSON.stringify(MESH_DEFAULT));
+    applyMeshConfig(true);
+  });
+  const sliderMeshSpeed = document.getElementById('slider-mesh-speed');
+  if (sliderMeshSpeed) sliderMeshSpeed.addEventListener('input', () => { meshConfig.drift = parseInt(sliderMeshSpeed.value, 10) || 0; applyMeshConfig(true); });
+  const sliderMeshBlur = document.getElementById('slider-mesh-blur');
+  if (sliderMeshBlur) sliderMeshBlur.addEventListener('input', () => { meshConfig.soft = parseInt(sliderMeshBlur.value, 10) || 0; applyMeshConfig(true); });
+
+  function makeMeshPinDraggable(pin, key) {
+    const stage = document.getElementById('mesh-stage');
+    if (!pin || !stage) return;
+    const moveTo = (clientX, clientY) => {
+      const r = stage.getBoundingClientRect();
+      meshConfig[key] = { x: clampPct(((clientX - r.left) / r.width) * 100, 0), y: clampPct(((clientY - r.top) / r.height) * 100, 0) };
+      applyMeshConfig(true);
+    };
+    pin.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      pin.setPointerCapture(e.pointerId);
+      pin.classList.add('dragging');
+    });
+    pin.addEventListener('pointermove', (e) => { if (pin.hasPointerCapture(e.pointerId)) moveTo(e.clientX, e.clientY); });
+    const stop = (e) => { pin.classList.remove('dragging'); try { pin.releasePointerCapture(e.pointerId); } catch (err) {} };
+    pin.addEventListener('pointerup', stop);
+    pin.addEventListener('pointercancel', stop);
+    pin.addEventListener('keydown', (e) => {
+      const step = e.shiftKey ? 5 : 1;
+      const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      meshConfig[key] = { x: clampPct(meshConfig[key].x + d[0], 0), y: clampPct(meshConfig[key].y + d[1], 0) };
+      applyMeshConfig(true);
+    });
+  }
+  makeMeshPinDraggable(document.getElementById('mesh-pin-1'), 'p1');
+  makeMeshPinDraggable(document.getElementById('mesh-pin-2'), 'p2');
+
+  // simple on/off appearance switches
+  function bindLocalSwitch(id, key, defaultOn, apply) {
+    const btn = document.getElementById(id);
+    const read = () => { const v = localStorage.getItem(key); return v === null ? defaultOn : v === 'true'; };
+    apply(read(), false);
+    if (!btn) return;
+    btn.classList.toggle('active', read());
+    btn.addEventListener('click', () => {
+      const next = !read();
+      localStorage.setItem(key, String(next));
+      btn.classList.toggle('active', next);
+      apply(next, true);
+    });
+  }
+
+  bindLocalSwitch('btn-no-hand-cursor', 'riffle_arrow_cursor', false, (on) => document.body.classList.toggle('arrow-cursor', on));
+
+  function syncScrubberStyle() {
+    uiFlags.flatScrubber = uiFlags.perf || localStorage.getItem('riffle_wavy_progress') === 'false';
+    hasDrawnPausedFrame = false;
+  }
+  bindLocalSwitch('btn-wavy-progress', 'riffle_wavy_progress', true, syncScrubberStyle);
+
+  function setMediaPlaying(on) {
+    document.querySelectorAll('#custom-wallpaper video, video.banner-video').forEach(v => {
+      if (on) v.play().catch(() => {});
+      else v.pause();
+    });
+  }
+  function applyPerfMode(on) {
+    uiFlags.perf = on;
+    document.body.classList.toggle('perf', on);
+    syncScrubberStyle();
+    setMediaPlaying(!on && state.isWindowVisible);
+  }
+  bindLocalSwitch('btn-perf-mode', 'riffle_perf_mode', false, applyPerfMode);
+
+  // first run on a machine without graphics acceleration: start in performance mode
+  if (localStorage.getItem('riffle_perf_mode') === null && window.electronAPI && window.electronAPI.gpuIsSoftware) {
+    window.electronAPI.gpuIsSoftware().then((software) => {
+      if (!software || localStorage.getItem('riffle_perf_mode') !== null) return;
+      localStorage.setItem('riffle_perf_mode', 'true');
+      const btn = document.getElementById('btn-perf-mode');
+      if (btn) btn.classList.add('active');
+      applyPerfMode(true);
+      showToast(tr('No graphics acceleration found, so performance mode is on. You can turn it off in Settings'));
+    }).catch(() => {});
+  }
+
+  // presses stay visible for a moment even on very fast clicks, and leave a ripple behind
+  const PRESSABLE = 'button, .chip-btn, .mix-card, .track-row, .nav-item, .rail-icon-btn, .preset-chip, .settings-nav-btn';
+  const RIPPLE_HOSTS = '.btn-pill-primary, .btn-outline-pill, .btn-icon-pill, .chip-btn, .rail-icon-btn, .preset-chip, .theme-mode-btn, .settings-nav-btn, .mix-card, .track-row, .btn-tonal-mini, .platform-btn';
+  document.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const pressed = e.target.closest(PRESSABLE);
+    if (pressed) {
+      pressed.classList.add('pressed');
+      const t0 = performance.now();
+      const release = () => {
+        document.removeEventListener('pointerup', release, true);
+        document.removeEventListener('pointercancel', release, true);
+        setTimeout(() => pressed.classList.remove('pressed'), Math.max(0, 170 - (performance.now() - t0)));
+      };
+      document.addEventListener('pointerup', release, true);
+      document.addEventListener('pointercancel', release, true);
+    }
+    if (uiFlags.perf || document.documentElement.classList.contains('force-reduced-motion')) return;
+    const host = e.target.closest(RIPPLE_HOSTS);
+    if (!host || host.disabled) return;
+    const r = host.getBoundingClientRect();
+    const size = Math.hypot(Math.max(e.clientX - r.left, r.right - e.clientX), Math.max(e.clientY - r.top, r.bottom - e.clientY)) * 2;
+    let layer = host.querySelector(':scope > .ripple-layer');
+    if (!layer) {
+      if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+      layer = document.createElement('span');
+      layer.className = 'ripple-layer';
+      host.appendChild(layer);
+    }
+    const wave = document.createElement('span');
+    wave.className = 'ripple-wave';
+    wave.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
+    layer.appendChild(wave);
+    wave.addEventListener('animationend', () => wave.remove(), { once: true });
+  }, true);
+
   // settings are split into categories; only the chosen one is in the layout at a time
   function showSettingsCategory(cat) {
     if (!document.querySelector(`#settings-nav [data-cat="${cat}"]`)) cat = 'appearance';
@@ -6821,7 +7372,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const labels = hints ? [...hints.querySelectorAll('span')].map(s => s.textContent) : [];
     const min = Number(input.min), max = Number(input.max), step = Number(input.step) || 1;
     const marks = {};
-    if (labels.length === 3) { marks[min] = labels[0]; marks[Number(input.getAttribute('value'))] = labels[1]; marks[max] = labels[2]; }
+    if (labels.length === 3) {
+      // the middle label belongs to the default value, or to the middle when the default sits at an end
+      let mid = Number(input.getAttribute('value'));
+      if (!(mid > min && mid < max)) mid = min + Math.round((max - min) / 2 / step) * step;
+      marks[min] = labels[0]; marks[mid] = labels[1]; marks[max] = labels[2];
+    }
     else if (labels.length === 2) { marks[min] = labels[0]; marks[max] = labels[1]; }
     const row = document.createElement('div');
     row.className = 'slider-ticks';

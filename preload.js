@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximizeWindow: () => ipcRenderer.send('window-maximize'),
   closeWindow: () => ipcRenderer.send('window-close'),
   getServerPort: () => ipcRenderer.invoke('get-server-port'),
+  pickMedia: (kind) => ipcRenderer.invoke('pick-media', kind),
+  gpuIsSoftware: () => ipcRenderer.invoke('gpu-is-software'),
   onWindowVisibility: (callback) => {
     ipcRenderer.on('window-visibility', (event, visible) => callback(visible));
   },

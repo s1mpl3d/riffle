@@ -19,6 +19,7 @@
 
   <div id="bg-mesh-a" class="bg-mesh-layer"></div>
   <div id="bg-mesh-b" class="bg-mesh-layer"></div>
+  <div id="custom-wallpaper" class="custom-wallpaper" hidden></div>
 
   <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
     <defs id="m3-dynamic-defs">
@@ -1495,8 +1496,43 @@
     </div>
   </div>
 
+  <div class="modal-backdrop hidden" id="mesh-editor-modal">
+    <div class="dialog-card mesh-editor-card">
+      <div class="dialog-head-row">
+        <h3>Background gradient</h3>
+        <button class="btn-icon-pill" id="btn-close-mesh-editor" title="Close" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <p class="dialog-hint">Drag the two lights to move the glow of the accent colors.</p>
+      <div class="mesh-stage" id="mesh-stage">
+        <div class="mesh-stage-bg" id="mesh-stage-bg"></div>
+        <button class="mesh-pin" id="mesh-pin-1" type="button" aria-label="First light" title="First light"></button>
+        <button class="mesh-pin second" id="mesh-pin-2" type="button" aria-label="Second light" title="Second light"></button>
+      </div>
+      <div class="setting-item flat">
+        <div class="setting-item-top">
+          <span class="setting-name">Drift</span>
+          <span class="setting-value" id="val-mesh-speed">Still</span>
+        </div>
+        <input type="range" class="pill-range" id="slider-mesh-speed" min="0" max="10" step="1" value="0">
+      </div>
+      <div class="setting-item flat">
+        <div class="setting-item-top">
+          <span class="setting-name">Softness</span>
+          <span class="setting-value" id="val-mesh-blur">0px</span>
+        </div>
+        <input type="range" class="pill-range" id="slider-mesh-blur" min="0" max="60" step="4" value="0">
+      </div>
+      <div class="dialog-actions">
+        <button class="btn-outline-pill" id="btn-reset-mesh" type="button">Reset</button>
+        <button class="btn-pill-primary" id="btn-done-mesh" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop hidden" id="rename-track-modal">
-    <div class="dialog-card">
+    <div class="dialog-card track-editor-card">
       <div class="dialog-header">
         <h3>Edit track info</h3>
       </div>
@@ -1505,6 +1541,34 @@
         <input type="text" id="rename-track-title" placeholder="Enter track title..." class="pill-text-input">
         <label class="dialog-label">Artist name</label>
         <input type="text" id="rename-track-artist" placeholder="Enter artist name..." class="pill-text-input">
+      </div>
+      <div class="track-art-editor">
+        <div class="track-art-row">
+          <div class="media-thumb" id="track-art-cover-thumb"></div>
+          <div class="setting-label-stack">
+            <span class="setting-name">Cover</span>
+            <span class="setting-desc" id="track-art-cover-status">Original art</span>
+          </div>
+          <div class="setting-top-actions">
+            <button class="btn-outline-pill btn-small" id="btn-choose-track-cover" type="button">Choose</button>
+            <button class="btn-icon-pill" id="btn-reset-track-cover" type="button" title="Back to the original">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="track-art-row">
+          <div class="media-thumb wide" id="track-art-banner-thumb"></div>
+          <div class="setting-label-stack">
+            <span class="setting-name">Banner</span>
+            <span class="setting-desc" id="track-art-banner-status">Same as every song</span>
+          </div>
+          <div class="setting-top-actions">
+            <button class="btn-outline-pill btn-small" id="btn-choose-track-banner" type="button">Choose</button>
+            <button class="btn-icon-pill" id="btn-reset-track-banner" type="button" title="Back to the original">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="dialog-actions">
         <button class="btn-outline-pill" id="btn-cancel-rename-track">Cancel</button>
@@ -1616,6 +1680,7 @@
           <span class="download-preview-title" id="download-preview-title">Track title</span>
           <span class="download-preview-artist" id="download-preview-artist">Artist</span>
         </div>
+        <button class="btn-tonal-mini" id="btn-download-edit-track" type="button">Edit info and art</button>
       </div>
 
       <div class="download-section">
