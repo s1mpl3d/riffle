@@ -136,6 +136,13 @@
           </div>
         </button>
 
+        <button class="nav-item" data-view="local" id="nav-local" title="My files">
+          <div class="nav-indicator">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="10" cy="14" r="2"/><path d="M12 14V9.5l3 1"/></svg>
+            <span class="nav-badge" id="local-count">0</span>
+          </div>
+        </button>
+
         <button class="nav-item" data-view="history" id="nav-history" title="History">
           <div class="nav-indicator">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -158,15 +165,15 @@
             <span class="nav-badge" id="queue-count">0</span>
           </div>
         </button>
+
+        <div class="rail-divider"></div>
+
+        <button class="nav-item" data-view="settings" id="nav-settings" title="Settings">
+          <div class="nav-indicator">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          </div>
+        </button>
       </nav>
-
-      <div class="rail-divider"></div>
-
-      <button class="nav-item" data-view="settings" id="nav-settings" title="Settings">
-        <div class="nav-indicator">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
-        </div>
-      </button>
 
       <div class="rail-divider"></div>
 
@@ -407,8 +414,43 @@
         <div class="settings-view">
           <h2 class="section-title">Settings</h2>
 
-          <div class="settings-section">
-            <span class="settings-section-title">Appearance</span>
+          <div class="settings-layout">
+            <nav class="settings-nav" id="settings-nav" aria-label="Settings categories">
+              <button class="settings-nav-btn" data-cat="appearance" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.7 1.6-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.3-4-7.8-9-7.8z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15.5" cy="8.5" r="1"/></svg>
+                <span>Appearance</span>
+              </button>
+              <button class="settings-nav-btn" data-cat="playback" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                <span>Playback</span>
+              </button>
+              <button class="settings-nav-btn" data-cat="lyrics" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/><path d="M17 15v6l4-2"/></svg>
+                <span>Lyrics</span>
+              </button>
+              <button class="settings-nav-btn" data-cat="integrations" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7V3"/><path d="M15 7V3"/><path d="M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v5"/></svg>
+                <span>Integrations</span>
+              </button>
+              <button class="settings-nav-btn" data-cat="storage" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+                <span>Storage</span>
+              </button>
+              <button class="settings-nav-btn" data-cat="system" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+                <span>System</span>
+              </button>
+              <button class="settings-nav-btn" data-cat="about" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span>About</span>
+              </button>
+            </nav>
+
+            <div class="settings-pane" id="settings-pane">
+
+          <div class="settings-section" data-cat="appearance">
+            <span class="settings-section-title">Theme</span>
+            <div class="settings-group">
 
             <div class="setting-item">
               <div class="setting-item-top">
@@ -513,11 +555,20 @@
             <div class="setting-item">
               <div class="setting-item-top">
                 <span class="setting-name">Mesh gradient brightness</span>
-                <span class="setting-value" id="val-mesh-brightness">100%</span>
+                <div class="setting-top-actions">
+                  <button class="btn-tonal-mini" id="btn-configure-mesh" type="button">Edit gradient</button>
+                  <span class="setting-value" id="val-mesh-brightness">100%</span>
+                </div>
               </div>
               <input type="range" class="pill-range" id="slider-mesh-brightness" min="0" max="100" step="5" value="100">
               <div class="setting-hints"><span>Off</span><span>Subtle</span><span>Full</span></div>
             </div>
+            </div>
+          </div>
+
+          <div class="settings-section" data-cat="appearance">
+            <span class="settings-section-title">Interface</span>
+            <div class="settings-group">
 
             <div class="setting-item">
               <div class="setting-item-top">
@@ -546,8 +597,124 @@
               <div class="setting-hints"><span>Sharp</span><span>16px</span><span>Round</span></div>
             </div>
 
-            <div class="settings-subgroup">
-              <span class="settings-subgroup-title">Banners</span>
+            <div class="setting-item">
+              <div class="setting-item-top">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Panel opacity</span>
+                  <span class="setting-desc">Lower it to let your background show through</span>
+                </div>
+                <span class="setting-value resettable" id="val-ui-alpha" title="Double-click the slider to reset">100%</span>
+              </div>
+              <input type="range" class="pill-range" id="slider-ui-alpha" min="20" max="100" step="5" value="100">
+              <div class="setting-hints"><span>20%</span><span>60%</span><span>100%</span></div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top">
+                <span class="setting-name">Text opacity</span>
+                <span class="setting-value resettable" id="val-text-alpha" title="Double-click the slider to reset">100%</span>
+              </div>
+              <input type="range" class="pill-range" id="slider-text-alpha" min="10" max="100" step="5" value="100">
+              <div class="setting-hints"><span>10%</span><span>55%</span><span>100%</span></div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <span class="setting-name">Show the My files tab</span>
+                <button class="effect-switch-btn active" id="btn-show-local"><span class="thumb"></span></button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Arrow cursor everywhere</span>
+                  <span class="setting-desc">Use the normal arrow instead of the hand and grab cursors</span>
+                </div>
+                <button class="effect-switch-btn" id="btn-no-hand-cursor"><span class="thumb"></span></button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Performance mode</span>
+                  <span class="setting-desc">For slower computers: no visualizers, blur or moving gradients, animations at 30 FPS</span>
+                </div>
+                <button class="effect-switch-btn" id="btn-perf-mode"><span class="thumb"></span></button>
+              </div>
+            </div>
+            </div>
+          </div>
+
+          <div class="settings-section" data-cat="appearance">
+            <span class="settings-section-title">Wallpaper</span>
+            <div class="settings-group">
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="media-pick-row">
+                  <div class="media-thumb" id="custom-bg-thumb"></div>
+                  <div class="setting-label-stack">
+                    <span class="setting-name">Background image or video</span>
+                    <span class="setting-desc" id="custom-bg-status">None. PNG, JPG, WebP, GIF, MP4 or WebM</span>
+                  </div>
+                </div>
+                <div class="setting-top-actions">
+                  <button class="btn-outline-pill btn-small" id="btn-choose-custom-bg" type="button">Choose</button>
+                  <button class="btn-outline-pill btn-small" id="btn-remove-custom-bg" type="button">Remove</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item custom-bg-dependent">
+              <div class="setting-item-top">
+                <span class="setting-name">Wallpaper opacity</span>
+                <span class="setting-value" id="val-bg-opacity">100%</span>
+              </div>
+              <input type="range" class="pill-range" id="slider-bg-opacity" min="10" max="100" step="5" value="100">
+              <div class="setting-hints"><span>10%</span><span>55%</span><span>100%</span></div>
+            </div>
+
+            <div class="setting-item custom-bg-dependent">
+              <div class="setting-item-top">
+                <span class="setting-name">Wallpaper blur</span>
+                <span class="setting-value" id="val-bg-blur">0px</span>
+              </div>
+              <input type="range" class="pill-range" id="slider-bg-blur" min="0" max="40" step="2" value="0">
+              <div class="setting-hints"><span>0px</span><span>20px</span><span>40px</span></div>
+            </div>
+            </div>
+          </div>
+
+          <div class="settings-section" data-cat="appearance">
+            <span class="settings-section-title">Banners</span>
+            <div class="settings-group">
+              <div class="setting-item">
+                <div class="setting-item-top" style="align-items: center;">
+                  <div class="media-pick-row">
+                    <div class="media-thumb wide" id="banner-media-thumb"></div>
+                    <div class="setting-label-stack">
+                      <span class="setting-name">Banner image or video</span>
+                      <span class="setting-desc" id="banner-media-status">Album art of the current song</span>
+                    </div>
+                  </div>
+                  <div class="setting-top-actions">
+                    <button class="btn-outline-pill btn-small" id="btn-choose-banner-media" type="button">Choose</button>
+                    <button class="btn-outline-pill btn-small" id="btn-reset-banner-media" type="button">Use album art</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-item-top">
+                  <span class="setting-name">Banner sizing</span>
+                </div>
+                <div class="theme-mode-toggle" id="banner-fit-toggle">
+                  <button class="theme-mode-btn" data-fit="fit" type="button">Fit</button>
+                  <button class="theme-mode-btn active" data-fit="zoom" type="button">Zoom</button>
+                  <button class="theme-mode-btn" data-fit="stretch" type="button">Stretch</button>
+                </div>
+              </div>
 
               <div class="setting-item">
                 <div class="setting-item-top">
@@ -578,9 +745,9 @@
             </div>
           </div>
 
-          <div class="settings-section">
-            <span class="settings-section-title">Playback</span>
-
+          <div class="settings-section" data-cat="playback">
+            <span class="settings-section-title">Crossfade</span>
+            <div class="settings-group">
             <div class="setting-item">
               <div class="setting-item-top" style="align-items: center;">
                 <span class="setting-name">Crossfade between songs</span>
@@ -603,7 +770,12 @@
               <input type="range" class="pill-range" id="slider-crossfade-secs" min="1" max="12" step="1" value="6">
               <div class="setting-hints"><span>1s</span><span>6s</span><span>12s</span></div>
             </div>
+            </div>
+          </div>
 
+          <div class="settings-section" data-cat="playback">
+            <span class="settings-section-title">Player</span>
+            <div class="settings-group">
             <div class="setting-item">
               <div class="setting-item-top" style="align-items: center;">
                 <div class="setting-label-stack">
@@ -626,35 +798,109 @@
 
             <div class="setting-item">
               <div class="setting-item-top" style="align-items: center;">
-                <span class="setting-name">Keep playing in the tray when closed</span>
-                <button class="effect-switch-btn active" id="btn-close-to-tray"><span class="thumb"></span></button>
+                <div class="setting-label-stack">
+                  <span class="setting-name">Glide between audio presets</span>
+                  <span class="setting-desc">Effects slide to the new preset instead of jumping</span>
+                </div>
+                <button class="effect-switch-btn active" id="btn-smooth-presets"><span class="thumb"></span></button>
               </div>
             </div>
-          </div>
-
-          <div class="settings-section">
-            <span class="settings-section-title">Shortcuts</span>
 
             <div class="setting-item">
               <div class="setting-item-top" style="align-items: center;">
-                <div class="setting-label-stack">
-                  <span class="setting-name">Global shortcuts</span>
-                  <span class="setting-desc">Work even while Riffle is hidden in the tray</span>
-                </div>
-                <button class="effect-switch-btn active" id="btn-global-shortcuts"><span class="thumb"></span></button>
+                <span class="setting-name">Wavy progress bar</span>
+                <button class="effect-switch-btn active" id="btn-wavy-progress"><span class="thumb"></span></button>
               </div>
-              <div class="shortcut-grid">
-                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Space</kbd></span><span>Play / pause</span>
-                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>→</kbd></span><span>Next song</span>
-                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd></span><span>Previous song</span>
-                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span>Volume</span>
-                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>P</kbd></span><span>Mini player</span>
-              </div>
+            </div>
             </div>
           </div>
 
-          <div class="settings-section">
+          <div class="settings-section" data-cat="lyrics">
+            <span class="settings-section-title">Lyrics</span>
+            <div class="settings-group">
+                  <div class="setting-item">
+                    <div class="setting-item-top" style="align-items: center;">
+                      <div class="setting-label-stack">
+                        <span class="setting-name">Online lyrics lookup</span>
+                        <span class="setting-desc">Fetch synced and plain lyrics from network providers</span>
+                      </div>
+                      <button class="effect-switch-btn active" data-adv="online_lyrics"><span class="thumb"></span></button>
+                    </div>
+                  </div>
+
+                  <div class="setting-item">
+                    <div class="setting-item-top" style="align-items: center;">
+                      <div class="setting-label-stack">
+                        <span class="setting-name">Karaoke word highlighting</span>
+                        <span class="setting-desc">Highlight individual words in synchronized lyrics</span>
+                      </div>
+                      <button class="effect-switch-btn active" data-adv="karaoke_words"><span class="thumb"></span></button>
+                    </div>
+                  </div>
+
+                  <div class="setting-item">
+                    <div class="setting-item-top" style="align-items: center;">
+                      <div class="setting-label-stack">
+                        <span class="setting-name">Auto-scroll synced lyrics</span>
+                        <span class="setting-desc">Smoothly follow the active lyric line during playback</span>
+                      </div>
+                      <button class="effect-switch-btn active" data-adv="lyrics_autoscroll"><span class="thumb"></span></button>
+                    </div>
+                  </div>
+
+                  <div class="setting-item">
+                    <div class="setting-item-top" style="align-items: center;">
+                      <div class="setting-label-stack">
+                        <span class="setting-name">Focus on the current line</span>
+                        <span class="setting-desc">Lines further from the one being sung fade out</span>
+                      </div>
+                      <button class="effect-switch-btn active" id="btn-lyrics-focus"><span class="thumb"></span></button>
+                    </div>
+                  </div>
+            </div>
+          </div>
+
+          <div class="settings-section" data-cat="lyrics">
+            <span class="settings-section-title">Translation</span>
+            <div class="settings-group">
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Lyrics translation</span>
+                  <span class="setting-desc">Adds a translate button to the lyrics panel. Lines are sent to Google Translate</span>
+                </div>
+                <button class="effect-switch-btn" id="btn-tr-enabled"><span class="thumb"></span></button>
+              </div>
+            </div>
+            <div class="setting-item tr-dependent">
+              <div class="setting-item-top">
+                <span class="setting-name">Translate into</span>
+              </div>
+              <div class="m3-dropdown" id="tr-lang-dropdown">
+                <button class="m3-dropdown-trigger" id="tr-lang-trigger" type="button">
+                  <span id="tr-lang-trigger-label">App language</span>
+                  <svg class="m3-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+                <div class="m3-dropdown-menu" id="tr-lang-menu">
+                  <button class="m3-dropdown-option" data-value="auto" type="button">App language</button>
+                </div>
+              </div>
+            </div>
+            <div class="setting-item tr-dependent">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Translate automatically</span>
+                  <span class="setting-desc">Show the translation as soon as a song with lyrics starts</span>
+                </div>
+                <button class="effect-switch-btn" id="btn-tr-auto"><span class="thumb"></span></button>
+              </div>
+            </div>
+            </div>
+          </div>
+
+          <div class="settings-section" data-cat="integrations">
             <span class="settings-section-title">Integrations</span>
+            <div class="settings-group">
 
             <div class="setting-item" id="card-discord-rpc">
               <div class="setting-item-top" style="align-items: center;">
@@ -665,6 +911,21 @@
                   <span class="setting-name">Discord Rich Presence</span>
                 </div>
                 <button class="effect-switch-btn active" id="btn-discord-rpc"><span class="thumb"></span></button>
+              </div>
+            </div>
+
+            <div class="setting-item" id="card-spotify-import">
+              <div class="setting-item-top" style="align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color: #1DB954;">
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                  </svg>
+                  <div class="setting-label-stack">
+                    <span class="setting-name">Spotify playlist import</span>
+                    <span class="setting-desc">Copies a public playlist into Riffle, matching each song on YouTube</span>
+                  </div>
+                </div>
+                <button class="btn-outline-pill btn-small" id="btn-open-spotify-import" type="button">Import</button>
               </div>
             </div>
 
@@ -690,10 +951,12 @@
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
-          <div class="settings-section">
+          <div class="settings-section" data-cat="storage">
             <span class="settings-section-title">Storage</span>
+            <div class="settings-group">
 
             <div class="setting-item clickable clear-cache-row" id="btn-open-clear-cache">
               <div class="setting-item-top" style="cursor: pointer; align-items: center;">
@@ -741,54 +1004,69 @@
                 <button class="btn-outline-pill" id="btn-clear-offline" style="padding: 6px 14px; font-size: calc(12px * var(--font-scale, 1));">Clear</button>
               </div>
             </div>
+            </div>
           </div>
 
-          <div class="settings-section" id="settings-section-advanced">
-            <button class="adv-section-header" id="btn-toggle-adv-section" type="button">
-              <span class="settings-section-title" style="margin-bottom: 0;">Advanced</span>
-              <svg class="adv-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
-            </button>
+          <div class="settings-section" data-cat="system">
+            <span class="settings-section-title">Window and keys</span>
+            <div class="settings-group">
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Keep playing in the tray when closed</span>
+                  <span class="setting-desc">Quit from the tray icon to really exit</span>
+                </div>
+                <button class="effect-switch-btn active" id="btn-close-to-tray"><span class="thumb"></span></button>
+              </div>
+            </div>
 
-            <div class="adv-collapsible-wrapper" id="adv-collapsible-wrapper">
-              <div class="adv-collapsible-inner">
-                <div class="adv-items-list">
+            <div class="setting-item" id="setting-media-keys">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Media keys</span>
+                  <span class="setting-desc">Play/pause, next and previous keys on your keyboard or headset. Turn off if another player should get them</span>
+                </div>
+                <button class="effect-switch-btn active" id="btn-media-keys"><span class="thumb"></span></button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Global shortcuts</span>
+                  <span class="setting-desc">Work even while Riffle is hidden in the tray</span>
+                </div>
+                <button class="effect-switch-btn active" id="btn-global-shortcuts"><span class="thumb"></span></button>
+              </div>
+              <div class="shortcut-grid">
+                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Space</kbd></span><span>Play / pause</span>
+                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>→</kbd></span><span>Next song</span>
+                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd></span><span>Previous song</span>
+                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span>Volume</span>
+                <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>P</kbd></span><span>Mini player</span>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Keyboard shortcuts</span>
+                  <span class="setting-desc">Keys that work inside the Riffle window. Press ? to open this list anywhere</span>
+                </div>
+                <button class="btn-outline-pill btn-small" id="btn-open-shortcuts" type="button">Show</button>
+              </div>
+            </div>
+            </div>
+          </div>
+
+          <div class="settings-section" id="settings-section-advanced" data-cat="system">
+            <span class="settings-section-title">Effects and home page</span>
+            <div class="settings-group">
                   <div class="setting-item">
                     <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span class="setting-name">Online lyrics lookup</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Fetch synced and plain lyrics from network providers</span>
-                      </div>
-                      <button class="effect-switch-btn active" data-adv="online_lyrics"><span class="thumb"></span></button>
-                    </div>
-                  </div>
-
-                  <div class="setting-item">
-                    <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span class="setting-name">Karaoke word highlighting</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Highlight individual words in synchronized lyrics</span>
-                      </div>
-                      <button class="effect-switch-btn active" data-adv="karaoke_words"><span class="thumb"></span></button>
-                    </div>
-                  </div>
-
-                  <div class="setting-item">
-                    <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span class="setting-name">Auto-scroll synced lyrics</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Smoothly follow the active lyric line during playback</span>
-                      </div>
-                      <button class="effect-switch-btn active" data-adv="lyrics_autoscroll"><span class="thumb"></span></button>
-                    </div>
-                  </div>
-
-                  <div class="setting-item">
-                    <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
+                      <div class="setting-label-stack">
                         <span class="setting-name">Background mesh gradient</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Show dynamic ambient color gradients behind interface panels</span>
+                        <span class="setting-desc">Show dynamic ambient color gradients behind interface panels</span>
                       </div>
                       <button class="effect-switch-btn active" data-adv="mesh_gradient"><span class="thumb"></span></button>
                     </div>
@@ -796,9 +1074,9 @@
 
                   <div class="setting-item">
                     <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
+                      <div class="setting-label-stack">
                         <span class="setting-name">Ambient light on My Wave</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Display colored glow behind the recommendation card</span>
+                        <span class="setting-desc">Display colored glow behind the recommendation card</span>
                       </div>
                       <button class="effect-switch-btn active" data-adv="my_wave_ambient"><span class="thumb"></span></button>
                     </div>
@@ -806,9 +1084,9 @@
 
                   <div class="setting-item">
                     <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
+                      <div class="setting-label-stack">
                         <span class="setting-name">Header banners</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Show artwork backdrop banners in Now playing and playlists</span>
+                        <span class="setting-desc">Show artwork backdrop banners in Now playing and playlists</span>
                       </div>
                       <button class="effect-switch-btn active" data-adv="banners"><span class="thumb"></span></button>
                     </div>
@@ -816,9 +1094,9 @@
 
                   <div class="setting-item">
                     <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
+                      <div class="setting-label-stack">
                         <span class="setting-name">My Wave recommendations</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Show personal recommendations on the home page</span>
+                        <span class="setting-desc">Show personal recommendations on the home page</span>
                       </div>
                       <button class="effect-switch-btn active" data-adv="my_wave"><span class="thumb"></span></button>
                     </div>
@@ -826,26 +1104,23 @@
 
                   <div class="setting-item">
                     <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
+                      <div class="setting-label-stack">
                         <span class="setting-name">Reduce motion</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Replace spring animations with simple fades</span>
+                        <span class="setting-desc">Replace spring animations with simple fades</span>
                       </div>
                       <button class="effect-switch-btn" data-adv="reduce_motion"><span class="thumb"></span></button>
                     </div>
                   </div>
-                </div>
-              </div>
             </div>
           </div>
 
-          <div class="settings-section" id="settings-section-about">
+          <div class="settings-section" id="settings-section-about" data-cat="about">
             <span class="settings-section-title">About</span>
+            <div class="settings-group">
             <div class="setting-item">
               <div class="setting-item-top" style="align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                  <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--md-sys-color-surface-container-high); display: flex; align-items: center; justify-content: center; color: var(--md-sys-color-primary);">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                  </div>
+                  <img src="assets/icon.png" alt="" class="about-app-icon" width="36" height="36">
                   <div style="display: flex; flex-direction: column;">
                     <span class="setting-name">Riffle</span>
                     <span id="about-version" style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Version</span>
@@ -854,9 +1129,10 @@
                 <button class="btn-outline-pill" id="btn-check-updates" style="padding: 6px 14px; font-size: calc(12px * var(--font-scale, 1));">Check for updates</button>
               </div>
             </div>
+            </div>
           </div>
 
-          <div class="settings-credits">
+          <div class="settings-credits" data-cat="about">
             <span class="settings-credits-text">
               <svg class="settings-credits-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.58 9.58 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/>
@@ -864,6 +1140,8 @@
               <span>Riffle by <a href="https://github.com/s1mpl3d/riffle" target="_blank" rel="noopener">s1mpl3d</a>, based on <a href="https://github.com/rootscripts/riff" target="_blank" rel="noopener">Riff</a> by rootless</span>
             </span>
             <span class="settings-version-tag" id="credits-version"></span>
+          </div>
+            </div>
           </div>
         </div>
       </section>

@@ -4356,6 +4356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           } else if (viewName === 'settings') {
             if (el.viewSettings) el.viewSettings.classList.add('active');
             if (el.navSettings) el.navSettings.classList.add('active');
+            showSettingsCategory(localStorage.getItem('riffle_settings_cat') || 'appearance');
             updateOfflineStorageUI();
             checkToolsStatus(false);
           }
@@ -5429,21 +5430,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.addEventListener('click', () => {
       languageDropdown.classList.remove('open');
-    });
-  }
-
-  const btnToggleAdv = document.getElementById('btn-toggle-adv-section');
-  const advWrapper = document.getElementById('adv-collapsible-wrapper');
-  if (btnToggleAdv && advWrapper) {
-    const isAdvOpen = localStorage.getItem('riffle_adv_open') === 'true';
-    if (isAdvOpen) {
-      btnToggleAdv.classList.add('is-open');
-      advWrapper.classList.add('is-open');
-    }
-    btnToggleAdv.addEventListener('click', () => {
-      const nowOpen = advWrapper.classList.toggle('is-open');
-      btnToggleAdv.classList.toggle('is-open', nowOpen);
-      localStorage.setItem('riffle_adv_open', nowOpen ? 'true' : 'false');
     });
   }
 
@@ -6806,6 +6792,66 @@ document.addEventListener('DOMContentLoaded', async () => {
       }).catch(() => {});
     }
   }
+
+  // settings are split into categories; only the chosen one is in the layout at a time
+  function showSettingsCategory(cat) {
+    if (!document.querySelector(`#settings-nav [data-cat="${cat}"]`)) cat = 'appearance';
+    document.querySelectorAll('#settings-pane > [data-cat]').forEach(node => node.classList.toggle('cat-hidden', node.dataset.cat !== cat));
+    document.querySelectorAll('#settings-nav .settings-nav-btn').forEach(btn => {
+      const on = btn.dataset.cat === cat;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-current', on ? 'page' : 'false');
+    });
+    const pane = document.querySelector('#view-settings .settings-view');
+    if (pane) pane.scrollTop = 0;
+    try { localStorage.setItem('riffle_settings_cat', cat); } catch (e) {}
+  }
+  const settingsNav = document.getElementById('settings-nav');
+  if (settingsNav) {
+    settingsNav.addEventListener('click', (e) => {
+      const btn = e.target.closest('.settings-nav-btn');
+      if (btn) showSettingsCategory(btn.dataset.cat);
+    });
+  }
+  showSettingsCategory(localStorage.getItem('riffle_settings_cat') || 'appearance');
+
+  // short sliders get a dot per step; the old hint labels move under their dots
+  function addSliderTicks(input) {
+    const hints = input.parentElement.querySelector('.setting-hints');
+    const labels = hints ? [...hints.querySelectorAll('span')].map(s => s.textContent) : [];
+    const min = Number(input.min), max = Number(input.max), step = Number(input.step) || 1;
+    const marks = {};
+    if (labels.length === 3) { marks[min] = labels[0]; marks[Number(input.getAttribute('value'))] = labels[1]; marks[max] = labels[2]; }
+    else if (labels.length === 2) { marks[min] = labels[0]; marks[max] = labels[1]; }
+    const row = document.createElement('div');
+    row.className = 'slider-ticks';
+    for (let v = min; v <= max + 1e-9; v += step) {
+      const dot = document.createElement('i');
+      dot.style.setProperty('--at', ((v - min) / (max - min)).toFixed(4));
+      if (marks[v] != null) {
+        dot.className = 'labeled';
+        const label = document.createElement('span');
+        label.textContent = marks[v];
+        dot.appendChild(label);
+      }
+      row.appendChild(dot);
+    }
+    input.insertAdjacentElement('afterend', row);
+    if (hints) hints.remove();
+  }
+  document.querySelectorAll('#view-settings .pill-range').forEach(input => {
+    const steps = (Number(input.max) - Number(input.min)) / (Number(input.step) || 1);
+    if (steps <= 24 && input.parentElement.querySelector('.setting-hints')) addSliderTicks(input);
+  });
+
+  // switches show a check when on and a dash when off
+  function decorateSwitches(root = document) {
+    root.querySelectorAll('.effect-switch-btn .thumb:not(.has-glyph)').forEach(thumb => {
+      thumb.classList.add('has-glyph');
+      thumb.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="glyph-on" d="M6 12.5l4 4 8-9"/><path class="glyph-off" d="M7 12h10"/></svg>';
+    });
+  }
+  decorateSwitches();
 
   loadHomePage();
   resizeCanvases();
