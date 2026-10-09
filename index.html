@@ -1522,6 +1522,30 @@
           <input type="range" class="pill-range" id="slider-echo" min="0" max="100" step="1" value="0">
           <div class="setting-hints"><span>0%</span><span>50%</span><span>100%</span></div>
         </div>
+
+        <div class="setting-item eq-card">
+          <div class="setting-item-top">
+            <span class="setting-name">Equalizer</span>
+            <span class="setting-desc">Double-click a band to flatten it</span>
+          </div>
+          <div class="eq-bands">
+            <label class="eq-band">
+              <span class="eq-value" id="val-eq-low">0 dB</span>
+              <span class="eq-slot"><input type="range" class="pill-range eq-slider" id="slider-eq-low" min="-12" max="12" step="1" value="0" aria-label="Bass"></span>
+              <span class="eq-name">Bass</span>
+            </label>
+            <label class="eq-band">
+              <span class="eq-value" id="val-eq-mid">0 dB</span>
+              <span class="eq-slot"><input type="range" class="pill-range eq-slider" id="slider-eq-mid" min="-12" max="12" step="1" value="0" aria-label="Mids"></span>
+              <span class="eq-name">Mids</span>
+            </label>
+            <label class="eq-band">
+              <span class="eq-value" id="val-eq-high">0 dB</span>
+              <span class="eq-slot"><input type="range" class="pill-range eq-slider" id="slider-eq-high" min="-12" max="12" step="1" value="0" aria-label="Treble"></span>
+              <span class="eq-name">Treble</span>
+            </label>
+          </div>
+        </div>
       </div>
 
       <div class="settings-footer">

@@ -37,6 +37,8 @@
 
       this.masterGain = null;
       this.analyserNode = null;
+      // three-band equalizer after the master gain, so it shapes the HQ chain and the effects alike
+      this.eqNodes = null;
 
       this.hqEnabled = false;
       this.hqSettings = {
@@ -53,7 +55,8 @@
         reverb: 0,
         distortion: 0,
         volume: 1.0,
-        echo: 0
+        echo: 0,
+        eq: { low: 0, mid: 0, high: 0 }
       };
       this.isMuted = false;
       this.volume = 0.85;
@@ -210,7 +213,9 @@
           this.convolverNode.connect(this.reverbGain);
           this.reverbGain.connect(this.masterGain);
 
-          this.masterGain.connect(this.analyserNode);
+          this.eqNodes = this._buildEq(this.ctx, this.audioSettings.eq);
+          this.masterGain.connect(this.eqNodes.input);
+          this.eqNodes.output.connect(this.analyserNode);
           this.analyserNode.connect(this.ctx.destination);
 
           this.graphInitialized = true;
@@ -282,6 +287,35 @@
     }
 
 
+    // low shelf, presence peak and high shelf; gains in dB, kept within ±12
+    _buildEq(ctx, eq) {
+      const band = (type, freq, q) => {
+        const f = ctx.createBiquadFilter();
+        f.type = type;
+        f.frequency.value = freq;
+        if (q) f.Q.value = q;
+        return f;
+      };
+      const low = band('lowshelf', 120);
+      const mid = band('peaking', 1100, 0.8);
+      const high = band('highshelf', 6500);
+      low.connect(mid);
+      mid.connect(high);
+      const nodes = { input: low, output: high, low, mid, high };
+      this._setEqGains(nodes, eq, ctx, false);
+      return nodes;
+    }
+
+    _setEqGains(nodes, eq, ctx, smooth = true) {
+      if (!nodes) return;
+      const db = (v) => Math.max(-12, Math.min(12, Number(v) || 0));
+      ['low', 'mid', 'high'].forEach(k => {
+        const target = db(eq && eq[k]);
+        if (smooth && ctx) nodes[k].gain.setTargetAtTime(target, ctx.currentTime, 0.04);
+        else nodes[k].gain.value = target;
+      });
+    }
+
     setAudioSettings(settings) {
       Object.assign(this.audioSettings, settings);
       this.applySettings();
@@ -311,6 +345,8 @@
         }
       }
 
+      if (this.eqNodes) this._setEqGains(this.eqNodes, s.eq, this.ctx, true);
+
       if (this.reverbGain) this.reverbGain.gain.value = s.reverb / 100;
 
       if (this.delayGain) this.delayGain.gain.value = s.echo / 100;
@@ -339,7 +375,8 @@
     isModified() {
       const s = this.audioSettings;
       return s.speed !== 1.0 || s.speedPitch !== 1.0 || s.pitch !== 0 ||
-        s.reverb !== 0 || s.distortion !== 0 || s.volume !== 1.0 || s.echo !== 0;
+        s.reverb !== 0 || s.distortion !== 0 || s.volume !== 1.0 || s.echo !== 0 ||
+        Boolean(s.eq && (s.eq.low || s.eq.mid || s.eq.high));
     }
 
 
@@ -512,7 +549,9 @@
         air.connect(sat);
         sat.connect(limiter);
         limiter.connect(master);
-        master.connect(offline.destination);
+        const eqHq = this._buildEq(offline, s.eq);
+        master.connect(eqHq.input);
+        eqHq.output.connect(offline.destination);
 
       } else {
         const dry = offline.createGain();
@@ -562,7 +601,9 @@
         conv.connect(revGain);
         revGain.connect(master);
 
-        master.connect(offline.destination);
+        const eqStd = this._buildEq(offline, s.eq);
+        master.connect(eqStd.input);
+        eqStd.output.connect(offline.destination);
       }
 
       src.start(0);

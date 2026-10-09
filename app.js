@@ -316,7 +316,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                           reverb: typeof s.reverb === 'number' ? s.reverb : 0,
                           distortion: typeof s.distortion === 'number' ? s.distortion : 0,
                           volume: typeof s.volume === 'number' ? s.volume : (typeof s.gain === 'number' ? s.gain : 1.0),
-                          echo: typeof s.echo === 'number' ? s.echo : 0
+                          echo: typeof s.echo === 'number' ? s.echo : 0,
+                          eq: {
+                            low: s.eq && typeof s.eq.low === 'number' ? s.eq.low : 0,
+                            mid: s.eq && typeof s.eq.mid === 'number' ? s.eq.mid : 0,
+                            high: s.eq && typeof s.eq.high === 'number' ? s.eq.high : 0
+                          }
       }
     };
   }
@@ -369,7 +374,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                           reverb: 0,
                           distortion: 0,
                           volume: 1.0,
-                          echo: 0
+                          echo: 0,
+                          eq: { low: 0, mid: 0, high: 0 }
                           },
                           hqEnabled: false,
                           hqSettings: {
@@ -1883,6 +1889,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateHqRouting() {
     audioEngine.setHqEnabled(state.hqEnabled);
+    // the switch and the panel follow the state, so a reset can't leave HQ looking on
+    if (el.btnToggleHqAudio) el.btnToggleHqAudio.classList.toggle('active', Boolean(state.hqEnabled));
+    if (el.hqPanelWrapper) el.hqPanelWrapper.classList.toggle('expanded', Boolean(state.hqEnabled));
   }
 
   function applyHqSettings() {
@@ -2204,6 +2213,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (el.sliderEcho) el.sliderEcho.value = s.echo;
     if (el.valEcho) el.valEcho.textContent = `${s.echo}%`;
+
+    const eq = s.eq || { low: 0, mid: 0, high: 0 };
+    ['low', 'mid', 'high'].forEach(band => {
+      const slider = document.getElementById(`slider-eq-${band}`);
+      const value = document.getElementById(`val-eq-${band}`);
+      const db = Math.round(eq[band] || 0);
+      if (slider) slider.value = db;
+      if (value) value.textContent = `${db > 0 ? '+' : ''}${db} dB`;
+    });
   }
 
   function updateNowPlayingUI(track) {
@@ -3374,15 +3392,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // switching presets slides every effect to its new value over ~0.45 s instead of jumping
+  let presetGlide = 0;
   function applyPreset(preset) {
     const normalized = normalizePreset(preset);
     if (!normalized) return;
     state.activePresetId = normalized.id;
-    state.audioSettings = { ...normalized.settings };
     initAudioContext();
-    syncSettingsSlidersToState();
-    applyAudioSettings();
     renderPresets();
+    cancelAnimationFrame(presetGlide);
+    const to = JSON.parse(JSON.stringify(normalized.settings));
+    // no frames while hidden, so a glide would stall there
+    if (localStorage.getItem('riffle_smooth_presets') === 'false' || !state.isWindowVisible || document.hidden) {
+      state.audioSettings = to;
+      syncSettingsSlidersToState();
+      applyAudioSettings();
+      return;
+    }
+    const from = JSON.parse(JSON.stringify(state.audioSettings));
+    const t0 = performance.now();
+    const mix = (a, b, k) => (typeof b === 'number' ? (typeof a === 'number' ? a : b) + (b - (typeof a === 'number' ? a : b)) * k : b);
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / 450);
+      const k = p * p * (3 - 2 * p);
+      const cur = {};
+      for (const key in to) {
+        if (to[key] && typeof to[key] === 'object') {
+          cur[key] = {};
+          for (const sub in to[key]) cur[key][sub] = mix(from[key] && from[key][sub], to[key][sub], k);
+        } else {
+          cur[key] = mix(from[key], to[key], k);
+        }
+      }
+      // pitch is in whole semitones on screen; the glide itself can pass through fractions
+      state.audioSettings = p < 1 ? cur : to;
+      syncSettingsSlidersToState();
+      applyAudioSettings();
+      if (p < 1) presetGlide = requestAnimationFrame(step);
+    };
+    presetGlide = requestAnimationFrame(step);
   }
 
   function saveCustomPreset(name) {
@@ -5682,10 +5730,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
 
-  if (el.btnResetAudio) {
-    el.btnResetAudio.addEventListener('click', () => {
+  // the reset button was never wired up (it is not in el)
+  const btnResetAudio = document.getElementById('btn-reset-audio');
+  if (btnResetAudio) {
+    btnResetAudio.addEventListener('click', () => {
+      cancelAnimationFrame(presetGlide);
       state.activePresetId = 'p_default';
-      state.audioSettings = { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0 };
+      state.audioSettings = { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0, eq: { low: 0, mid: 0, high: 0 } };
+      // reset also turns HQ off and puts its sliders back
+      state.hqEnabled = false;
+      state.hqSettings = Object.assign({}, state.hqSettings, { preset: 'studio', vocal: 0, air: 0, bass: 0 });
+      ['Vocal', 'Air', 'Bass'].forEach(k => {
+        if (el[`sliderHq${k}`]) el[`sliderHq${k}`].value = 0;
+        if (el[`valHq${k}`]) el[`valHq${k}`].textContent = '0%';
+      });
+      if (el.hqPresetChips) el.hqPresetChips.forEach(c => c.classList.toggle('active', c.dataset.preset === 'studio'));
+      updateHqRouting();
+      applyHqSettings();
       syncSettingsSlidersToState();
       applyAudioSettings();
       renderPresets();
@@ -7010,6 +7071,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.downloadModal) closeModal(el.downloadModal);
     if (track) setTimeout(() => openTrackRenameDialog(track), 180);
   });
+
+  // ---- audio: equalizer and preset glide ----------------------------------------------------
+
+  ['low', 'mid', 'high'].forEach(band => {
+    const slider = document.getElementById(`slider-eq-${band}`);
+    if (!slider) return;
+    const set = (db) => {
+      initAudioContext();
+      cancelAnimationFrame(presetGlide);
+      state.audioSettings.eq = Object.assign({ low: 0, mid: 0, high: 0 }, state.audioSettings.eq, { [band]: db });
+      state.activePresetId = null;
+      syncSettingsSlidersToState();
+      applyAudioSettings();
+      renderPresets();
+    };
+    slider.addEventListener('input', () => set(parseInt(slider.value, 10) || 0));
+    slider.addEventListener('dblclick', () => set(0));
+  });
+  bindLocalSwitch('btn-smooth-presets', 'riffle_smooth_presets', true, () => {});
 
   // ---- lyrics: focus, translation, karaoke on the whole screen ---------------------------------
 

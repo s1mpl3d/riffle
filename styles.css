@@ -5306,3 +5306,34 @@ body.is-playing .tv-icon-pause { display: block; }
 .lyrics-header-actions { flex-wrap: nowrap; min-width: 0; }
 .lyrics-header-actions .lyrics-action-btn span { display: none; }
 .lyrics-header-actions .lyrics-action-btn { padding: 5px 8px; }
+
+/* equalizer: three upright sliders */
+.eq-card .setting-item-top { align-items: baseline; }
+.eq-bands {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 4px;
+}
+.eq-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+.eq-value { font-size: calc(12px * var(--font-scale, 1)); font-variant-numeric: tabular-nums; color: var(--md-sys-color-primary); }
+.eq-name { font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface-variant); }
+.eq-slot {
+  position: relative;
+  width: 28px;
+  height: 120px;
+}
+.pill-range.eq-slider {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120px;
+  margin: 0;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
