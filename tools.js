@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { IS_WIN, BIN_DIR, resolveBinary, clearBinaryCache } = require('./platform');
 
-const state = { status: 'idle', tool: '', percent: 0, error: '' };
+const state = { status: 'idle', tool: '', percent: 0, phase: '', error: '' };
 const STAMP = path.join(BIN_DIR, '.ytdlp-update-stamp');
 
 function ytDlpAsset() {
@@ -123,6 +123,7 @@ async function installFfmpeg() {
   if (got !== want) { fs.rmSync(archive, { force: true }); throw new Error('ffmpeg checksum mismatch'); }
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'riffle-ffmpeg-'));
   try {
+    state.phase = 'unpacking';
     await run('tar', ['-xf', archive, '-C', work]);
     for (const name of ['ffmpeg', 'ffprobe']) {
       const exe = IS_WIN ? `${name}.exe` : name;
@@ -152,8 +153,9 @@ async function ensureTools() {
   state.status = 'downloading';
   state.error = '';
   try {
-    if (!resolveBinary('yt-dlp')) { state.tool = 'yt-dlp'; state.percent = 0; await installYtDlp(); clearBinaryCache(); }
-    if (!resolveBinary('ffmpeg')) { state.tool = 'ffmpeg'; state.percent = 0; await installFfmpeg(); clearBinaryCache(); }
+    if (!resolveBinary('yt-dlp')) { Object.assign(state, { tool: 'yt-dlp', percent: 0, phase: '' }); await installYtDlp(); clearBinaryCache(); }
+    if (!resolveBinary('ffmpeg')) { Object.assign(state, { tool: 'ffmpeg', percent: 0, phase: '' }); await installFfmpeg(); clearBinaryCache(); }
+    state.phase = '';
     state.status = 'done';
   } catch (e) {
     state.status = 'error';

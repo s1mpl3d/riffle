@@ -1050,7 +1050,7 @@
               </div>
             </div>
 
-            <div class="setting-item" id="setting-media-keys">
+            <div class="setting-item" id="setting-media-keys" hidden>
               <div class="setting-item-top" style="align-items: center;">
                 <div class="setting-label-stack">
                   <span class="setting-name">Media keys</span>
@@ -1075,6 +1075,7 @@
                 <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span>Volume</span>
                 <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>P</kbd></span><span>Mini player</span>
               </div>
+              <button class="btn-outline-pill shortcuts-open-btn" id="btn-open-shortcuts" type="button">All keyboard shortcuts <kbd>?</kbd></button>
             </div>
 
             <div class="setting-item">
@@ -1611,6 +1612,44 @@
     </div>
   </div>
 
+  <div class="modal-backdrop hidden" id="shortcuts-modal">
+    <div class="dialog-card shortcuts-card">
+      <div class="dialog-head-row">
+        <h3>Keyboard shortcuts</h3>
+        <button class="btn-icon-pill" id="btn-close-shortcuts" title="Close" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="shortcuts-body">
+          <span class="shortcuts-group-title">Playback</span>
+          <div class="shortcut-grid">
+            <span class="shortcut-keys"><kbd>Space</kbd></span><span>Play / pause</span>
+            <span class="shortcut-keys"><kbd>←</kbd></span><span>Back 5 seconds</span>
+            <span class="shortcut-keys"><kbd>→</kbd></span><span>Forward 5 seconds</span>
+            <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>←</kbd></span><span>Previous song</span>
+            <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>→</kbd></span><span>Next song</span>
+            <span class="shortcut-keys"><kbd>↑</kbd><kbd>↓</kbd></span><span>Volume</span>
+            <span class="shortcut-keys"><kbd>M</kbd></span><span>Mute</span>
+            <span class="shortcut-keys"><kbd>H</kbd></span><span>Shuffle</span>
+            <span class="shortcut-keys"><kbd>R</kbd></span><span>Repeat</span>
+            <span class="shortcut-keys"><kbd>F</kbd></span><span>Like the current song</span>
+          </div>
+          <span class="shortcuts-group-title">Views</span>
+          <div class="shortcut-grid">
+            <span class="shortcut-keys"><kbd>L</kbd></span><span>Lyrics panel</span>
+            <span class="shortcut-keys"><kbd>K</kbd></span><span>Karaoke on the whole screen</span>
+            <span class="shortcut-keys"><kbd>P</kbd></span><span>Mini player</span>
+            <span class="shortcut-keys"><kbd>S</kbd></span><span>Audio effects</span>
+            <span class="shortcut-keys"><kbd>/</kbd></span><span>Search</span>
+            <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>K</kbd></span><span>Search</span>
+            <span class="shortcut-keys"><kbd>?</kbd></span><span>This list</span>
+            <span class="shortcut-keys"><kbd>Esc</kbd></span><span>Close a dialog or leave a field</span>
+          </div>
+      </div>
+      <p class="dialog-hint">They don't fire while you type in a text field.</p>
+    </div>
+  </div>
+
   <div class="modal-backdrop hidden" id="mesh-editor-modal">
     <div class="dialog-card mesh-editor-card">
       <div class="dialog-head-row">
@@ -1726,12 +1765,34 @@
   </div>
 
   <div class="modal-backdrop hidden" id="tools-install-modal">
-    <div class="dialog-card">
-      <h3>Download required tools?</h3>
-      <p style="margin: 0 0 16px; color: var(--md-sys-color-on-surface-variant); font-size: calc(14px * var(--font-scale, 1));">Riffle needs yt-dlp and ffmpeg to play and save tracks. They are downloaded from their official GitHub releases into Riffle's own folder and need about 400 MB of disk space. Nothing else on your system is changed.</p>
+    <div class="dialog-card tools-card">
+      <div class="dialog-head-row">
+        <h3>Download required tools?</h3>
+        <button class="btn-icon-pill" id="btn-close-tools-modal" title="Close" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <p class="dialog-hint">Riffle needs yt-dlp and ffmpeg to play and save tracks. They are downloaded from their official GitHub releases into Riffle's own folder and need about 400 MB of disk space. Nothing else on your system is changed.</p>
+      <div class="tools-list">
+        <div class="tools-row" data-tool="yt-dlp">
+          <span class="tools-row-icon" aria-hidden="true"></span>
+          <div class="tools-row-main">
+            <div class="tools-row-top"><span class="tools-row-name">yt-dlp</span><span class="tools-row-state" id="tools-state-yt-dlp"></span></div>
+            <div class="tools-bar"><div class="tools-bar-fill" id="tools-bar-yt-dlp"></div></div>
+          </div>
+        </div>
+        <div class="tools-row" data-tool="ffmpeg">
+          <span class="tools-row-icon" aria-hidden="true"></span>
+          <div class="tools-row-main">
+            <div class="tools-row-top"><span class="tools-row-name">ffmpeg</span><span class="tools-row-state" id="tools-state-ffmpeg"></span></div>
+            <div class="tools-bar"><div class="tools-bar-fill" id="tools-bar-ffmpeg"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="tools-error" id="tools-error" hidden></div>
       <div class="dialog-actions">
-        <button class="btn-outline-pill" id="btn-dismiss-tools-modal">Not now</button>
-        <button class="btn-pill-primary" id="btn-confirm-install-tools">Download</button>
+        <button class="btn-outline-pill" id="btn-dismiss-tools-modal" type="button">Not now</button>
+        <button class="btn-pill-primary" id="btn-confirm-install-tools" type="button">Download</button>
       </div>
     </div>
   </div>

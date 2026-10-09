@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, screen, shell, Tray, Menu, nativeImage, globalShortcut } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, screen, shell, Tray, Menu, nativeImage, globalShortcut, powerMonitor } = require('electron');
 const { pathToFileURL } = require('url');
 const fs = require('fs');
 const path = require('path');
@@ -132,6 +132,24 @@ function runGUI() {
     for (const [accel, cmd] of Object.entries(GLOBAL_SHORTCUTS)) {
       try {
         if (!globalShortcut.register(accel, () => sendTrayCommand(cmd))) console.warn('Shortcut taken by another app:', accel);
+      } catch (e) {}
+    }
+  }
+
+  // hardware media keys on Windows: grabbed globally once the page has played something,
+  // so a fresh Riffle doesn't steal them from a player that is already running
+  const MEDIA_KEYS = { MediaPlayPause: 'toggle', MediaNextTrack: 'next', MediaPreviousTrack: 'prev', MediaStop: 'stop' };
+  const mediaKeys = { wanted: true, armed: false };
+
+  function syncMediaKeys() {
+    if (process.platform !== 'win32' || !app.isReady()) return;
+    for (const key of Object.keys(MEDIA_KEYS)) {
+      try { if (globalShortcut.isRegistered(key)) globalShortcut.unregister(key); } catch (e) {}
+    }
+    if (!mediaKeys.wanted || !mediaKeys.armed) return;
+    for (const [key, cmd] of Object.entries(MEDIA_KEYS)) {
+      try {
+        if (!globalShortcut.register(key, () => sendTrayCommand('media:' + cmd))) console.warn('Media key taken by another app:', key);
       } catch (e) {}
     }
   }
@@ -556,6 +574,21 @@ function runGUI() {
       ipcMain.on('set-global-shortcuts', (event, enabled) => {
         if (app.isReady()) setGlobalShortcuts(Boolean(enabled));
         else app.whenReady().then(() => setGlobalShortcuts(Boolean(enabled)));
+      });
+
+      ipcMain.on('set-media-keys', (event, enabled) => {
+        mediaKeys.wanted = Boolean(enabled);
+        syncMediaKeys();
+      });
+      ipcMain.on('media-keys-armed', () => {
+        if (mediaKeys.armed) return;
+        mediaKeys.armed = true;
+        syncMediaKeys();
+      });
+      // windows can drop the registration across sleep or a locked screen
+      app.whenReady().then(() => {
+        powerMonitor.on('resume', syncMediaKeys);
+        powerMonitor.on('unlock-screen', syncMediaKeys);
       });
 
       ipcMain.on('mini-toggle', toggleMiniWindow);

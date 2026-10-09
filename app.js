@@ -354,6 +354,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     normalizeVolume: localStorage.getItem('riffle_normalize') !== 'false',
     autoplayEnabled: localStorage.getItem('riffle_autoplay') !== 'false',
     globalShortcuts: localStorage.getItem('riffle_global_shortcuts') !== 'false',
+    mediaKeys: localStorage.getItem('riffle_media_keys') !== 'false',
     playNextPending: 0,
     isAutoRemix: false,
     myWaveActive: false,
@@ -464,11 +465,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // a media key press can arrive twice (our global grab and Chromium's media session),
+  // so the same action within a short window only runs once
+  const mediaPress = { action: '', at: 0 };
+  function runMediaAction(action) {
+    const kind = action === 'play' || action === 'pause' || action === 'stop' ? 'toggle' : action;
+    const now = performance.now();
+    if (mediaPress.action === kind && now - mediaPress.at < 350) return;
+    mediaPress.action = kind;
+    mediaPress.at = now;
+    const playing = el.nativeAudio && !el.nativeAudio.paused;
+    if (action === 'toggle') togglePlayPause();
+    else if (action === 'play') { if (!playing) togglePlayPause(); }
+    else if (action === 'pause' || action === 'stop') { if (playing) togglePlayPause(); }
+    else if (action === 'next') playNext();
+    else if (action === 'prev') playPrev();
+  }
+
   if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', togglePlayPause);
-    navigator.mediaSession.setActionHandler('pause', togglePlayPause);
-    navigator.mediaSession.setActionHandler('previoustrack', playPrev);
-    navigator.mediaSession.setActionHandler('nexttrack', playNext);
+    const handlers = { play: 'play', pause: 'pause', stop: 'stop', previoustrack: 'prev', nexttrack: 'next' };
+    for (const [name, action] of Object.entries(handlers)) {
+      try { navigator.mediaSession.setActionHandler(name, () => runMediaAction(action)); } catch (e) {}
+    }
+    try {
+      navigator.mediaSession.setActionHandler('seekto', (d) => {
+        if (el.nativeAudio && d && isFinite(d.seekTime)) el.nativeAudio.currentTime = d.seekTime;
+      });
+    } catch (e) {}
   }
 
   function hexToRgb(hex) {
@@ -1413,10 +1436,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnCloseDrawer) {
     btnCloseDrawer.addEventListener('click', () => closeDrawer());
   }
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && openDrawerState) closeDrawer();
-  });
 
   const resumeAudioOnce = () => {
     initAudioContext();
@@ -4078,6 +4097,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindSettingSwitch('btn-global-shortcuts', 'globalShortcuts', 'riffle_global_shortcuts', setGlobalShortcuts);
   setGlobalShortcuts(state.globalShortcuts);
 
+  if (window.electronAPI && window.electronAPI.isWindows && window.electronAPI.setMediaKeys) {
+    const mediaKeysRow = document.getElementById('setting-media-keys');
+    if (mediaKeysRow) mediaKeysRow.hidden = false;
+    bindSettingSwitch('btn-media-keys', 'mediaKeys', 'riffle_media_keys', (on) => window.electronAPI.setMediaKeys(on));
+    window.electronAPI.setMediaKeys(state.mediaKeys);
+    if (el.nativeAudio) el.nativeAudio.addEventListener('play', () => window.electronAPI.mediaKeysArmed(), { once: true });
+  }
+
   function nudgeVolume(delta) {
     if (!el.volumeSlider) return;
     el.volumeSlider.value = Math.min(1, Math.max(0, state.volume + delta));
@@ -4114,7 +4141,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (window.electronAPI && window.electronAPI.onTrayCommand) {
     window.electronAPI.onTrayCommand((cmd) => {
-      if (cmd === 'toggle') togglePlayPause();
+      if (typeof cmd === 'string' && cmd.startsWith('media:')) runMediaAction(cmd.slice(6));
+      else if (cmd === 'toggle') togglePlayPause();
       else if (cmd === 'next') playNext();
       else if (cmd === 'prev') playPrev();
       else if (cmd === 'volup') nudgeVolume(0.05);
@@ -5785,8 +5813,79 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  const shortcutsModal = document.getElementById('shortcuts-modal');
+  const btnCloseShortcuts = document.getElementById('btn-close-shortcuts');
+  const btnOpenShortcuts = document.getElementById('btn-open-shortcuts');
+  if (btnOpenShortcuts) btnOpenShortcuts.addEventListener('click', () => openModal(shortcutsModal));
+  if (btnCloseShortcuts) btnCloseShortcuts.addEventListener('click', () => closeModal(shortcutsModal));
+  if (shortcutsModal) shortcutsModal.addEventListener('click', (e) => { if (e.target === shortcutsModal) closeModal(shortcutsModal); });
+
+  function toggleModal(modal) {
+    if (!modal) return;
+    if (modal.classList.contains('hidden')) openModal(modal);
+    else closeModal(modal);
+  }
+
+  // goes through the slider so the mute icon and saved volume follow
+  function setVolumeBy(delta) {
+    if (!el.volumeSlider) return;
+    el.volumeSlider.value = Math.min(1, Math.max(0, state.volume + delta));
+    el.volumeSlider.dispatchEvent(new Event('input'));
+  }
+
+  function seekBy(secs) {
+    const a = el.nativeAudio;
+    if (!a || !isFinite(a.duration)) return;
+    a.currentTime = Math.min(a.duration, Math.max(0, a.currentTime + secs));
+  }
+
+  // Esc peels off one layer at a time: karaoke, then the top dialog, then the drawer
+  function closeTopLayer() {
+    if (tvKaraoke.open) { closeTvKaraoke(); return true; }
+    const open = [...document.querySelectorAll('.modal-backdrop:not(.hidden)')];
+    const top = open[open.length - 1];
+    if (top) {
+      const btn = top.querySelector('[id^="btn-close"], [id^="btn-cancel"], [id^="btn-dismiss"]');
+      if (btn) btn.click();
+      else closeModal(top);
+      return true;
+    }
+    if (openDrawerState) { closeDrawer(); return true; }
+    return false;
+  }
+
+  const isTyping = (t) => t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+
+  // plain keys (any case); ctrl / shift variants are handled before this table
+  const keyActions = {
+    m: () => el.btnVolumeMute && el.btnVolumeMute.click(),
+    h: () => el.btnShuffle && el.btnShuffle.click(),
+    r: () => el.btnRepeat && el.btnRepeat.click(),
+    f: () => state.currentTrack && toggleFavoriteTrack(state.currentTrack),
+    l: () => el.btnToggleLyricsPanel && el.btnToggleLyricsPanel.click(),
+    k: () => (tvKaraoke.open ? closeTvKaraoke() : openTvKaraoke()),
+    p: () => toggleMiniPlayer(),
+    s: () => toggleModal(el.audioSettingsModal),
+    '?': () => toggleModal(shortcutsModal),
+    '/': () => focusSearch()
+  };
+
+  function focusSearch() {
+    if (!el.searchInput) return;
+    if (tvKaraoke.open) closeTvKaraoke();
+    el.searchInput.focus();
+    el.searchInput.select();
+  }
+
   window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.defaultPrevented || e.altKey || e.metaKey) return;
+
+    if (e.key === 'Escape') {
+      if (isTyping(e.target)) { e.target.blur(); return; }
+      if (closeTopLayer()) e.preventDefault();
+      return;
+    }
+    if (isTyping(e.target)) return;
 
     if (syncState.active && e.code === 'Space' && syncState.currentIndex < syncState.lines.length) {
       e.preventDefault();
@@ -5794,45 +5893,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (e.ctrlKey) {
+      if (e.code === 'ArrowRight') { e.preventDefault(); if (!e.repeat) playNext(); }
+      else if (e.code === 'ArrowLeft') { e.preventDefault(); if (!e.repeat) playPrev(); }
+      else if (e.code === 'KeyK') { e.preventDefault(); focusSearch(); }
+      return;
+    }
+
     if (e.code === 'Space') {
       e.preventDefault();
-      togglePlayPause();
-    } else if (e.code === 'ArrowRight' && el.nativeAudio) {
+      if (!e.repeat) togglePlayPause();
+    } else if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') {
       e.preventDefault();
-      const nextTime = Math.min(el.nativeAudio.duration || 0, el.nativeAudio.currentTime + 5);
-      el.nativeAudio.currentTime = nextTime;
-    } else if (e.code === 'ArrowLeft' && el.nativeAudio) {
+      seekBy(e.code === 'ArrowRight' ? 5 : -5);
+    } else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
       e.preventDefault();
-      const prevTime = Math.max(0, el.nativeAudio.currentTime - 5);
-      el.nativeAudio.currentTime = prevTime;
-    } else if (e.code === 'ArrowUp') {
+      setVolumeBy(e.code === 'ArrowUp' ? 0.05 : -0.05);
+    } else {
+      const action = keyActions[e.key.length === 1 ? e.key.toLowerCase() : ''];
+      if (!action) return;
       e.preventDefault();
-      state.volume = Math.min(1, state.volume + 0.05);
-      savePlayerVolume();
-      if (el.volumeSlider) el.volumeSlider.value = state.volume;
-      applyAudioSettings();
-    } else if (e.code === 'ArrowDown') {
-      e.preventDefault();
-      state.volume = Math.max(0, state.volume - 0.05);
-      savePlayerVolume();
-      if (el.volumeSlider) el.volumeSlider.value = state.volume;
-      applyAudioSettings();
-    } else if (e.key === 's' || e.key === 'S') {
-      if (el.audioSettingsModal) {
-        if (el.audioSettingsModal.classList.contains('hidden')) openModal(el.audioSettingsModal);
-        else closeModal(el.audioSettingsModal);
-      }
-    } else if (e.key === 'v' || e.key === 'V') {
-      if (el.visualSettingsModal) {
-        if (el.visualSettingsModal.classList.contains('hidden')) openModal(el.visualSettingsModal);
-        else closeModal(el.visualSettingsModal);
-      }
-    } else if (e.key === 'f' || e.key === 'F') {
-      if (state.currentTrack) toggleFavoriteTrack(state.currentTrack);
-    } else if (e.key === 'r' || e.key === 'R') {
-      if (el.btnRepeat) el.btnRepeat.click();
-    } else if (e.key === 'l' || e.key === 'L') {
-      if (el.btnToggleLyricsPanel) el.btnToggleLyricsPanel.click();
+      if (!e.repeat) action();
     }
   });
 
@@ -6916,6 +6997,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // per-tool rows in the install dialog: done, downloading with a bar, waiting its turn, or failed
+  const toolsDialog = { running: false };
+  function renderToolsDialog(data) {
+    const modal = document.getElementById('tools-install-modal');
+    if (!modal || !data) return;
+    const p = data.progress || {};
+    const busy = p.status === 'downloading';
+    const failed = p.status === 'error';
+    const have = { 'yt-dlp': !!data.ytDlp, ffmpeg: !!data.ffmpeg };
+    for (const row of modal.querySelectorAll('.tools-row')) {
+      const tool = row.dataset.tool;
+      const label = document.getElementById('tools-state-' + tool);
+      const bar = document.getElementById('tools-bar-' + tool);
+      let st = 'missing', text = tr('Not installed'), pct = 0;
+      if (have[tool]) { st = 'done'; text = tr('Ready'); pct = 100; }
+      else if (busy && p.tool === tool) {
+        st = 'active';
+        pct = p.percent || 0;
+        text = p.phase === 'unpacking' ? tr('Unpacking...') : pct + '%';
+      } else if (busy) { st = 'queued'; text = tr('Waiting'); }
+      else if (failed && p.tool === tool) { st = 'failed'; text = tr('Failed'); }
+      row.dataset.state = st;
+      if (label) label.textContent = text;
+      if (bar) bar.style.width = pct + '%';
+    }
+    const errBox = document.getElementById('tools-error');
+    if (errBox) {
+      errBox.hidden = !(failed && toolsDialog.running);
+      errBox.textContent = failed ? (p.error || tr('Download failed')) : '';
+    }
+    const btn = document.getElementById('btn-confirm-install-tools');
+    const dismiss = document.getElementById('btn-dismiss-tools-modal');
+    const allDone = have['yt-dlp'] && have.ffmpeg;
+    if (btn) {
+      btn.disabled = busy;
+      btn.dataset.done = allDone ? '1' : '';
+      btn.textContent = busy ? tr('Downloading...') : allDone ? tr('Done') : failed && toolsDialog.running ? tr('Try again') : tr('Download');
+    }
+    if (dismiss) dismiss.textContent = busy ? tr('Hide') : tr('Not now');
+  }
+
   function pollToolsStatus() {
     if (toolsPollInterval) return;
     toolsPollInterval = setInterval(async () => {
@@ -6923,11 +7045,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/tools-status`);
         const data = await res.json();
         updateToolsUI(data);
+        renderToolsDialog(data);
         if (data.progress && (data.progress.status === 'done' || data.progress.status === 'error')) {
           clearInterval(toolsPollInterval);
           toolsPollInterval = null;
-          if (data.progress.status === 'error' && data.progress.error) {
+          const dialogOpen = !document.getElementById('tools-install-modal').classList.contains('hidden');
+          if (data.progress.status === 'error' && data.progress.error && !dialogOpen) {
             showToast(data.progress.error, 'error');
+          } else if (data.progress.status === 'done' && !dialogOpen) {
+            showToast(tr('yt-dlp and ffmpeg are ready'));
           }
         }
       } catch (e) {}
@@ -6937,6 +7063,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function startToolsInstall() {
     const btnInstall = document.getElementById('btn-install-tools');
     if (btnInstall) btnInstall.disabled = true;
+    toolsDialog.running = true;
     fetch(`http://127.0.0.1:${state.serverPort}/api/tools-install`, { method: 'POST' }).catch(() => {});
     pollToolsStatus();
   }
@@ -6947,6 +7074,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/tools-status`);
       const data = await res.json();
       updateToolsUI(data);
+      renderToolsDialog(data);
 
       if (data.progress && data.progress.status === 'downloading') {
         pollToolsStatus();
@@ -6972,17 +7100,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnConfirmInstallTools && toolsModal) {
     btnConfirmInstallTools.addEventListener('click', () => {
-      closeModal(toolsModal);
+      // after a finished install the same button just closes the dialog
+      if (btnConfirmInstallTools.dataset.done) { closeModal(toolsModal); return; }
       startToolsInstall();
     });
   }
 
-  if (btnDismissToolsModal && toolsModal) {
-    btnDismissToolsModal.addEventListener('click', () => {
-      sessionStorage.setItem('riffle_tools_prompt_dismissed', '1');
-      closeModal(toolsModal);
-    });
-  }
+  // closing while it downloads only hides the dialog; settings keep showing the progress
+  const hideToolsModal = () => {
+    sessionStorage.setItem('riffle_tools_prompt_dismissed', '1');
+    closeModal(toolsModal);
+  };
+  if (btnDismissToolsModal && toolsModal) btnDismissToolsModal.addEventListener('click', hideToolsModal);
+  const btnCloseToolsModal = document.getElementById('btn-close-tools-modal');
+  if (btnCloseToolsModal && toolsModal) btnCloseToolsModal.addEventListener('click', hideToolsModal);
 
   if (window.electronAPI && window.electronAPI.onUpdateAvailable) {
     let userTriggeredUpdate = false;
