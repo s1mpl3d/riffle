@@ -12,6 +12,8 @@ Downloads: [latest release](https://github.com/s1mpl3d/riffle/releases/latest)
 
 Riffle is a fork of [Riff](https://github.com/rootscripts/riff) by rootless, with extra playback features on top.
 
+Tested on Windows and Linux.
+
 ## Features
 
 ### Playback
