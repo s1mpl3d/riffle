@@ -741,10 +741,22 @@ async function cacheThumbnailToDisk(cleanId, thumbnailUrl) {
   return null;
 }
 
-async function downloadTrackToDisk(trackUrl, trackId, platform, meta = {}) {
+// each cache download runs a yt-dlp and an ffmpeg (~50 MB or more apiece), so background
+// downloads go one at a time; playback that needs the file right away skips the line
+let downloadQueue = Promise.resolve();
+
+async function downloadTrackToDisk(trackUrl, trackId, platform, meta = {}, urgent = false) {
   const cleanId = cleanTrackId(trackId);
   if (downloadingSet.has(cleanId) || await findCachedFile(cleanId)) return;
   downloadingSet.add(cleanId);
+  if (urgent) return runTrackDownload(trackUrl, cleanId, trackId, platform, meta);
+  const run = downloadQueue.then(() => runTrackDownload(trackUrl, cleanId, trackId, platform, meta));
+  downloadQueue = run.catch(() => {});
+  return run;
+}
+
+async function runTrackDownload(trackUrl, cleanId, trackId, platform, meta) {
+  if (await findCachedFile(cleanId)) { downloadingSet.delete(cleanId); return; }
 
   const outputPath = path.join(CACHE_DIR, `${cleanId}.opus`);
   const tempPath = path.join(CACHE_DIR, `${cleanId}.temp.opus`);
@@ -773,7 +785,10 @@ async function downloadTrackToDisk(trackUrl, trackId, platform, meta = {}) {
   try { cmd = ytDlpCommand(args); } catch (e) { downloadingSet.delete(cleanId); console.error(e.message); return; }
   return new Promise((resolve) => {
   const proc = spawn(cmd.bin, cmd.args, { windowsHide: true });
+  // a stuck download would hold up the queue behind it
+  const stuck = setTimeout(() => { try { proc.kill('SIGKILL'); } catch (e) {} }, 10 * 60 * 1000);
   proc.on('close', async (code) => {
+    clearTimeout(stuck);
     downloadingSet.delete(cleanId);
     if (code === 0 && fs.existsSync(tempPath)) {
       try {
@@ -803,6 +818,7 @@ async function downloadTrackToDisk(trackUrl, trackId, platform, meta = {}) {
   });
 
   proc.on('error', () => {
+    clearTimeout(stuck);
     downloadingSet.delete(cleanId);
     resolve();
   });
@@ -842,7 +858,9 @@ async function prefetchTrack(trackUrl, trackId, platform) {
         proxyUrl: `http://127.0.0.1:${PORT}/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`
       };
       remember(streamUrlCache, cleanId, { timestamp: Date.now(), data });
-      downloadTrackToDisk(trackUrl, cleanId, platform);
+      // knowing the stream URL is enough to start instantly; the file itself is only
+      // cached once the track is actually played (TikTok clips are short and play from disk)
+      if (platform === 'tiktok') downloadTrackToDisk(trackUrl, cleanId, platform, {}, true);
     }
   } catch (e) {
   } finally {
@@ -1003,7 +1021,7 @@ async function handleStreamInfo(req, res, trackUrl, trackId, platform = 'youtube
   }
 
   if (platform === 'tiktok') {
-    await downloadTrackToDisk(trackUrl, cleanId, platform, meta);
+    await downloadTrackToDisk(trackUrl, cleanId, platform, meta, true);
     // a hover prefetch may already be downloading this clip
     for (let i = 0; i < 120 && downloadingSet.has(cleanId); i++) {
       await new Promise(r => setTimeout(r, 500));

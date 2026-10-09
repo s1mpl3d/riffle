@@ -16,6 +16,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tr = window.i18n ? window.i18n.t : (s => s);
   const trn = (n, one, many, vars) => tr(n === 1 ? one : many, Object.assign({ n }, vars));
 
+  // search results carry 1280x720 YouTube thumbnails; a 44px row only needs the 320x180
+  // one, which decodes to a twentieth of the memory
+  const smallThumb = (url) => {
+    const m = /^https?:\/\/i\d?\.ytimg\.com\/vi(?:_webp)?\/([^/?#]+)\//.exec(url || '');
+    return m ? `https://i.ytimg.com/vi/${m[1]}/mqdefault.jpg` : (url || '');
+  };
+
   const LiquidMotion = {
     setAnchor(element, triggerEl, axis = 'x') {
       if (!element) return;
@@ -2090,7 +2097,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (track.thumbnail) {
       if (el.playbarArtwork) {
-        el.playbarArtwork.src = track.thumbnail;
+        el.playbarArtwork.src = smallThumb(track.thumbnail);
         el.playbarArtwork.style.display = 'block';
       }
       if (el.artworkFallback) el.artworkFallback.style.display = 'none';
@@ -3325,7 +3332,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       row.innerHTML = `
       <span class="track-row-index">${idx + 1}</span>
-      <img class="track-row-thumb" src="${track.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'">
+      <img class="track-row-thumb" src="${smallThumb(track.thumbnail)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
       <div class="track-row-info">
       <span class="track-row-title">${(track.title || 'untitled')}</span>
       <span class="track-row-artist" title="${tr('view artist profile')}">${(track.artist || tr('unknown artist'))}</span>
@@ -3891,7 +3898,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       container.classList.add('cover-single');
       const img = document.createElement('img');
       img.className = 'cover-single-img';
-      img.src = firstThumb;
+      img.src = smallThumb(firstThumb);
       img.alt = '';
       img.loading = 'lazy';
       img.onerror = () => {
@@ -4630,7 +4637,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (item.kind === 'track') {
         const t = item.track;
-        const thumb = t.localThumbnail || t.thumbnail;
+        const thumb = t.localThumbnail || smallThumb(t.thumbnail);
         html += `<div class="search-suggest-item is-track" role="option" data-index="${i}">
           <span class="search-suggest-thumb">${thumb ? `<img src="${escapeSuggestHtml(thumb)}" alt="" loading="lazy">` : ''}</span>
           <span class="search-suggest-text"><span class="search-suggest-main">${escapeSuggestHtml(t.title)}</span><span class="search-suggest-sub">${escapeSuggestHtml(t.artist)}</span></span>
@@ -6092,7 +6099,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           pill.className = 'quick-play-pill';
           pill.style.animationDelay = (idx * 60) + 'ms';
           pill.innerHTML = `
-          <img class="quick-play-pill-img" src="${t.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'">
+          <img class="quick-play-pill-img" src="${smallThumb(t.thumbnail)}" alt="" decoding="async" onerror="this.style.visibility='hidden'">
           <div class="quick-play-pill-text">
           <span class="quick-play-pill-title">${(t.title || 'untitled')}</span>
           <span class="quick-play-pill-artist">${(t.artist || '')}</span>
