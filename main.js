@@ -21,6 +21,11 @@ if (process.platform === 'win32') {
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+  // software compositing keeps the GPU process at ~75 MB instead of ~150 MB for a few % of one core;
+  // RIFFLE_GPU_COMPOSITING=1 brings the GPU compositor back
+  if (process.env.RIFFLE_GPU_COMPOSITING !== '1') {
+    app.commandLine.appendSwitch('disable-gpu-compositing');
+  }
 }
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
