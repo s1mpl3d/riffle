@@ -5337,3 +5337,42 @@ body.is-playing .tv-icon-pause { display: block; }
   margin: 0;
   transform: translate(-50%, -50%) rotate(-90deg);
 }
+
+/* My files */
+.nav-item[hidden] { display: none; }
+.local-drop-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 16px;
+  padding: 36px 16px;
+  border: 2px dashed var(--md-sys-color-outline-variant);
+  border-radius: var(--md-shape-corner-l);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: calc(14px * var(--font-scale, 1));
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+.local-drop-hint:hover { border-color: var(--md-sys-color-primary); }
+.local-drop-formats { font-size: calc(11px * var(--font-scale, 1)); color: var(--md-sys-color-outline); }
+.local-drop-hint.compact { flex-direction: row; justify-content: center; padding: 10px 16px; margin-top: 0; }
+.local-drop-hint.compact svg { width: 18px; height: 18px; }
+.local-drop-hint.compact .local-drop-formats { display: none; }
+body.dropping-files .local-drop-hint { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+body.dropping-files::after {
+  content: '';
+  position: fixed;
+  inset: 8px;
+  z-index: 200000;
+  border: 3px dashed var(--md-sys-color-primary);
+  border-radius: 24px;
+  pointer-events: none;
+}
+.search-icon.is-button { cursor: pointer; }
+.right-panel.lyrics-empty #btn-translate-lyrics, #btn-translate-lyrics[hidden] { display: none !important; }
+.spotify-import-card { width: 440px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: 14px; }
+.spotify-import-status { font-size: calc(13px * var(--font-scale, 1)); color: var(--md-sys-color-primary); }
+.spotify-import-status.error { color: var(--md-sys-color-error, #ffb4ab); }
+.spotify-import-status[hidden] { display: none; }

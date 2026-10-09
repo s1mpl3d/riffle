@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, webFrame } = require('electron');
+const { contextBridge, ipcRenderer, webFrame, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getServerPort: () => ipcRenderer.invoke('get-server-port'),
   pickMedia: (kind) => ipcRenderer.invoke('pick-media', kind),
   gpuIsSoftware: () => ipcRenderer.invoke('gpu-is-software'),
+  importAudioFiles: () => ipcRenderer.invoke('import-audio-files'),
+  importAudioPaths: (paths) => ipcRenderer.invoke('import-audio-paths', paths),
+  // dropped File objects don't expose their path to the page any more
+  pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch (e) { return ''; } },
   onWindowVisibility: (callback) => {
     ipcRenderer.on('window-visibility', (event, visible) => callback(visible));
   },

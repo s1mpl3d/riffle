@@ -2248,6 +2248,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (el.rightPanelFallback) el.rightPanelFallback.style.display = 'flex';
     }
 
+    // nothing to download for your own files
+    if (el.btnPlaybarMore) el.btnPlaybarMore.style.display = track.platform === 'local' ? 'none' : '';
     if (el.rightPanelTitle) el.rightPanelTitle.textContent = track.title || tr('Untitled');
     if (el.rightPanelArtist) el.rightPanelArtist.textContent = track.artist || tr('Unknown artist');
 
@@ -2487,6 +2489,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const savedCopy = findSavedTrack(track);
       if (savedCopy) {
         data = { success: true, isLocal: true, streamUrl: `http://127.0.0.1:${state.serverPort}/api/saved-file?name=${encodeURIComponent(savedCopy.savedFile)}` };
+      }
+      if (!data && track.platform === 'local') {
+        data = { success: true, isLocal: true, streamUrl: `http://127.0.0.1:${state.serverPort}/api/library-file?id=${encodeURIComponent(track.id)}` };
       }
 
       const initialId = track.id || (track.url && track.url.includes('v=') ? track.url.split('v=')[1].split('&')[0] : null);
@@ -3605,9 +3610,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       <button class="btn-icon-pill btn-row-add-playlist" title="${tr('add to playlist')}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       </button>
-      <button class="btn-icon-pill btn-row-more" title="${tr('download & options')}">
+      <button class="btn-icon-pill btn-row-more" title="${track.platform === 'local' ? tr('edit info and art') : tr('download & options')}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle><circle cx="5" cy="12" r="2"></circle></svg>
       </button>
+      ${context === 'local' ? `
+        <button class="btn-icon-pill btn-row-remove-local delete-btn" title="${tr('remove from My files')}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+        </button>` : ''}
       ${context === 'saved' ? `
         <button class="btn-icon-pill btn-row-remove-saved delete-btn" title="${tr('delete saved file')}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
@@ -3670,7 +3679,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (btnMore) {
           btnMore.addEventListener('click', (e) => {
             e.stopPropagation();
-            openDownloadModal(track);
+            // your own files have nothing to download, so the button edits them
+            if (track.platform === 'local') openTrackRenameDialog(track);
+            else openDownloadModal(track);
           });
         }
 
@@ -3687,6 +3698,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           btnPlayNext.addEventListener('click', (e) => {
             e.stopPropagation();
             queuePlayNext(track);
+          });
+        }
+
+        const btnRemLocal = row.querySelector('.btn-row-remove-local');
+        if (btnRemLocal) {
+          btnRemLocal.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeLocalTrack(track);
           });
         }
 
@@ -4500,9 +4519,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  function createPlaylist(name) {
+  function createPlaylist(name, tracks = []) {
     if (!name || !name.trim()) return;
-    const newPl = { id: 'pl_' + Date.now(), name: name.trim(), tracks: [] };
+    const newPl = { id: 'pl_' + Date.now(), name: name.trim(), tracks: Array.isArray(tracks) ? tracks : [] };
     state.playlists.push(newPl);
     localStorage.setItem('devsize_playlists', JSON.stringify(state.playlists));
     renderPlaylistsList();
@@ -4580,11 +4599,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     requestAnimationFrame(() => {
       document.querySelectorAll('.no-enter-anim').forEach(c => c.classList.remove('no-enter-anim'));
-      [el.viewDiscover, el.viewFavorites, el.viewSaved, el.viewHistory, el.viewQueue, el.viewPlaylistDetail, el.viewArtist, el.viewSettings].forEach(v => {
+      [el.viewDiscover, el.viewFavorites, el.viewSaved, document.getElementById('view-local'), el.viewHistory, el.viewQueue, el.viewPlaylistDetail, el.viewArtist, el.viewSettings].forEach(v => {
         if (v) v.classList.remove('active');
       });
 
-        [el.navDiscover, el.navFavorites, el.navSaved, el.navHistory, el.navQueue, el.navSettings].forEach(n => {
+        [el.navDiscover, el.navFavorites, el.navSaved, document.getElementById('nav-local'), el.navHistory, el.navQueue, el.navSettings].forEach(n => {
           if (n) n.classList.remove('active');
         });
 
@@ -4600,6 +4619,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (el.navSaved) el.navSaved.classList.add('active');
             renderSavedView();
             loadSavedTracks();
+          } else if (viewName === 'local') {
+            document.getElementById('view-local').classList.add('active');
+            document.getElementById('nav-local').classList.add('active');
+            loadLocalLibrary();
           } else if (viewName === 'history') {
             if (el.viewHistory) el.viewHistory.classList.add('active');
             if (el.navHistory) el.navHistory.classList.add('active');
@@ -4699,6 +4722,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (el.navFavorites) el.navFavorites.addEventListener('click', () => switchView('favorites'));
   if (el.navHistory) el.navHistory.addEventListener('click', () => switchView('history'));
   if (el.navSaved) el.navSaved.addEventListener('click', () => switchView('saved'));
+  const navLocal = document.getElementById('nav-local');
+  if (navLocal) navLocal.addEventListener('click', () => switchView('local'));
   if (el.navQueue) el.navQueue.addEventListener('click', () => switchView('queue'));
   if (el.navSettings) el.navSettings.addEventListener('click', () => switchView('settings'));
 
@@ -4811,19 +4836,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       clearTimeout(searchDebounceTimer);
-      // tiktok has no text search; only auto-search complete links (an @username needs Enter)
-      if (state.platform === 'tiktok' && !/^https?:\/\/\S+$/i.test(val.trim())) return;
-      searchDebounceTimer = setTimeout(() => {
-        if (val.trim()) performSearch(val);
-      }, 280);
+      // text searches run on Enter; a pasted link is complete, so it goes right away
+      if (!/^https?:\/\/\S+$/i.test(val.trim())) return;
+      searchDebounceTimer = setTimeout(() => performSearch(val), 150);
     });
 
     el.searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         clearTimeout(searchDebounceTimer);
-        performSearch(el.searchInput.value);
+        if (el.searchInput.value.trim()) performSearch(el.searchInput.value);
       }
     });
+    // the magnifier works as a search button too
+    const searchIcon = document.querySelector('.search-box .search-icon');
+    if (searchIcon) {
+      searchIcon.classList.add('is-button');
+      searchIcon.addEventListener('click', () => {
+        if (el.searchInput.value.trim()) performSearch(el.searchInput.value);
+        else el.searchInput.focus();
+      });
+    }
   }
 
   // search autocomplete: your own songs and recent searches first, then YouTube's suggestions
@@ -7072,6 +7104,201 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (track) setTimeout(() => openTrackRenameDialog(track), 180);
   });
 
+  // ---- My files: your own audio, copied into Riffle's library -----------------------------------
+
+  const localLib = { tracks: [], loaded: false, importing: false };
+  const localList = document.getElementById('local-tracks-list');
+  const localSearch = document.getElementById('local-search-input');
+
+  function updateLocalBadge() {
+    const badge = document.getElementById('local-count');
+    if (badge) badge.textContent = String(localLib.tracks.length);
+  }
+  function renderLocalView() {
+    const q = localSearch ? localSearch.value.trim().toLowerCase() : '';
+    const shown = q
+      ? localLib.tracks.filter(t => `${t.title} ${t.artist} ${t.album || ''}`.toLowerCase().includes(q))
+      : localLib.tracks;
+    const subtitle = document.getElementById('local-subtitle');
+    if (subtitle) {
+      subtitle.textContent = q
+        ? tr('{shown} of {total} songs', { shown: shown.length, total: localLib.tracks.length })
+        : trn(localLib.tracks.length, '{n} song in your library', '{n} songs in your library');
+    }
+    const hint = document.getElementById('local-drop-hint');
+    if (hint) hint.classList.toggle('compact', localLib.tracks.length > 0);
+    if (!localList) return;
+    if (!localLib.tracks.length) localList.innerHTML = '';
+    else if (!shown.length) localList.innerHTML = `<div class="empty-hint">${tr('No songs match your search')}</div>`;
+    else renderTracks(localList, shown, 'local');
+  }
+  async function loadLocalLibrary() {
+    try {
+      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/library`);
+      localLib.tracks = await res.json();
+      localLib.loaded = true;
+    } catch (e) {}
+    updateLocalBadge();
+    if (state.currentView === 'local') renderLocalView();
+  }
+  if (localSearch) localSearch.addEventListener('input', renderLocalView);
+
+  async function addToLocalLibrary(items) {
+    if (!items || !items.length) return;
+    localLib.importing = true;
+    showToast(trn(items.length, 'Adding {n} file...', 'Adding {n} files...'));
+    try {
+      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/library-add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+      });
+      const data = await res.json();
+      const added = (data && data.tracks) || [];
+      showToast(trn(added.length, '{n} song added to My files', '{n} songs added to My files'));
+    } catch (e) {
+      showToast(tr('Could not add the files'), 'error');
+    }
+    localLib.importing = false;
+    await loadLocalLibrary();
+    if (state.currentView !== 'local') switchView('local');
+  }
+  async function importLocalFiles() {
+    if (!window.electronAPI || !window.electronAPI.importAudioFiles) return;
+    const items = await window.electronAPI.importAudioFiles().catch(() => []);
+    await addToLocalLibrary(items);
+  }
+  const btnAddLocal = document.getElementById('btn-add-local-files');
+  if (btnAddLocal) btnAddLocal.addEventListener('click', importLocalFiles);
+  const localHint = document.getElementById('local-drop-hint');
+  if (localHint) localHint.addEventListener('click', importLocalFiles);
+
+  // audio files dropped anywhere on the window go to My files
+  let dragDepth = 0;
+  const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+  window.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; dragDepth++; document.body.classList.add('dropping-files'); });
+  window.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) document.body.classList.remove('dropping-files'); });
+  window.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener('drop', async (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    document.body.classList.remove('dropping-files');
+    if (!window.electronAPI || !window.electronAPI.importAudioPaths) return;
+    const paths = Array.from(e.dataTransfer.files || []).map(f => window.electronAPI.pathForFile(f)).filter(Boolean);
+    const items = await window.electronAPI.importAudioPaths(paths).catch(() => []);
+    if (!items.length) {
+      if (paths.length) showToast(tr('Those files are not audio Riffle can play'), 'error');
+      return;
+    }
+    await addToLocalLibrary(items);
+  });
+
+  async function removeLocalTrack(track) {
+    try {
+      await fetch(`http://127.0.0.1:${state.serverPort}/api/library-remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: track.id })
+      });
+    } catch (e) {}
+    localLib.tracks = localLib.tracks.filter(t => t.id !== track.id);
+    setTrackArt(track, { cover: null, banner: null });
+    updateLocalBadge();
+    renderLocalView();
+    showToast(tr('Removed from My files'));
+  }
+
+  // files added before tags could be read learn their length the first time they play
+  if (el.nativeAudio) el.nativeAudio.addEventListener('loadedmetadata', () => {
+    const t = state.currentTrack;
+    const dur = el.nativeAudio.duration;
+    if (!t || t.platform !== 'local' || t.duration || !isFinite(dur) || dur <= 0) return;
+    t.duration = Math.round(dur);
+    fetch(`http://127.0.0.1:${state.serverPort}/api/library-update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: t.id, duration: dur })
+    }).catch(() => {});
+  });
+
+  bindLocalSwitch('btn-show-local', 'riffle_show_local', true, (on) => {
+    const nav = document.getElementById('nav-local');
+    if (nav) nav.hidden = !on;
+    if (!on && state.currentView === 'local') switchView('discover');
+  });
+  loadLocalLibrary();
+
+  // ---- Spotify import: a public playlist or album becomes a Riffle playlist --------------------
+
+  const spotifyImport = { target: 'new', busy: false, dropdown: null };
+  const spotifyModal = document.getElementById('spotify-import-modal');
+  const spotifyUrl = document.getElementById('spotify-import-url');
+  const spotifyStatus = document.getElementById('spotify-import-status');
+  const btnConfirmSpotify = document.getElementById('btn-confirm-spotify-import');
+
+  function setSpotifyStatus(text, isError) {
+    if (!spotifyStatus) return;
+    spotifyStatus.hidden = !text;
+    spotifyStatus.textContent = text || '';
+    spotifyStatus.classList.toggle('error', Boolean(isError));
+  }
+  function openSpotifyImport() {
+    if (!spotifyModal) return;
+    spotifyImport.target = 'new';
+    // refilled each time so playlists made since then show up
+    const targets = [{ value: 'new', label: tr('A new playlist') }].concat(state.playlists.map(p => ({ value: p.id, label: p.name })));
+    if (spotifyImport.dropdown) spotifyImport.dropdown.setOptions(targets, 'new');
+    else spotifyImport.dropdown = bindDropdown('spotify-import-target', targets, 'new', (value) => { spotifyImport.target = value; });
+    if (spotifyUrl) spotifyUrl.value = '';
+    setSpotifyStatus('');
+    if (btnConfirmSpotify) { btnConfirmSpotify.disabled = false; btnConfirmSpotify.textContent = tr('Import'); }
+    openModal(spotifyModal);
+    setTimeout(() => spotifyUrl && spotifyUrl.focus(), 60);
+  }
+  async function runSpotifyImport() {
+    if (spotifyImport.busy) return;
+    const link = spotifyUrl ? spotifyUrl.value.trim() : '';
+    if (!/open\.spotify\.com\//i.test(link)) {
+      setSpotifyStatus(tr('That is not a Spotify link'), true);
+      return;
+    }
+    spotifyImport.busy = true;
+    if (btnConfirmSpotify) { btnConfirmSpotify.disabled = true; btnConfirmSpotify.textContent = tr('Reading...'); }
+    setSpotifyStatus('');
+    try {
+      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/spotify-import?url=${encodeURIComponent(link)}`);
+      const data = await res.json();
+      if (!data.success || !data.tracks || !data.tracks.length) throw new Error(data.error || 'empty');
+      if (spotifyImport.target === 'new') {
+        createPlaylist(data.name || tr('Spotify playlist'), data.tracks);
+      } else {
+        const pl = state.playlists.find(p => p.id === spotifyImport.target);
+        if (pl) {
+          const have = new Set(pl.tracks.map(t => getTrackCanonicalId(t)));
+          data.tracks.forEach(t => { if (!have.has(getTrackCanonicalId(t))) pl.tracks.push(t); });
+          localStorage.setItem('devsize_playlists', JSON.stringify(state.playlists));
+          renderPlaylistsList();
+          openPlaylistDetail(pl.id);
+        }
+      }
+      closeModal(spotifyModal);
+      showToast(trn(data.tracks.length, '{n} song imported from Spotify', '{n} songs imported from Spotify'));
+    } catch (e) {
+      setSpotifyStatus(tr('Could not read that link. Make sure the playlist is public'), true);
+    }
+    spotifyImport.busy = false;
+    if (btnConfirmSpotify) { btnConfirmSpotify.disabled = false; btnConfirmSpotify.textContent = tr('Import'); }
+  }
+  const btnOpenSpotifyImport = document.getElementById('btn-open-spotify-import');
+  if (btnOpenSpotifyImport) btnOpenSpotifyImport.addEventListener('click', openSpotifyImport);
+  if (btnConfirmSpotify) btnConfirmSpotify.addEventListener('click', runSpotifyImport);
+  ['btn-cancel-spotify-import', 'btn-close-spotify-import'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', () => closeModal(spotifyModal));
+  });
+  if (spotifyUrl) spotifyUrl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSpotifyImport(); } });
+
   // ---- audio: equalizer and preset glide ----------------------------------------------------
 
   ['low', 'mid', 'high'].forEach(band => {
@@ -7191,34 +7418,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const trigger = root.querySelector('.m3-dropdown-trigger');
     const label = root.querySelector('.m3-dropdown-trigger span');
     const menu = root.querySelector('.m3-dropdown-menu');
-    menu.innerHTML = '';
+    let list = options;
     const select = (value) => {
       menu.querySelectorAll('.m3-dropdown-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
-      const opt = options.find(o => o.value === value);
+      const opt = list.find(o => o.value === value);
       if (label && opt) label.textContent = opt.label;
     };
-    options.forEach(o => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'm3-dropdown-option';
-      btn.dataset.value = o.value;
-      btn.textContent = o.label;
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        select(o.value);
-        root.classList.remove('open');
-        onPick(o.value);
+    const setOptions = (next, value) => {
+      list = next;
+      menu.innerHTML = '';
+      list.forEach(o => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'm3-dropdown-option';
+        btn.dataset.value = o.value;
+        btn.textContent = o.label;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          select(o.value);
+          root.classList.remove('open');
+          onPick(o.value);
+        });
+        menu.appendChild(btn);
       });
-      menu.appendChild(btn);
-    });
+      select(value);
+    };
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       document.querySelectorAll('.m3-dropdown.open').forEach(d => { if (d !== root) d.classList.remove('open'); });
       root.classList.toggle('open');
     });
     document.addEventListener('click', () => root.classList.remove('open'));
-    select(current);
-    return { select };
+    setOptions(options, current);
+    return { select, setOptions };
   }
   bindDropdown('tr-lang-dropdown',
     [{ value: 'auto', label: tr('App language') }].concat(Object.entries(TRANSLATE_LANGUAGES).map(([value, label]) => ({ value, label }))),

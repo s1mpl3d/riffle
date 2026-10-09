@@ -433,6 +433,40 @@ function runGUI() {
         return { url: pathToFileURL(result.filePaths[0]).href, name: path.basename(result.filePaths[0]) };
       });
 
+      // My files: copies picked or dropped audio into the library folder; the server reads tags later
+      const AUDIO_EXTENSIONS = ['mp3', 'flac', 'wav', 'ogg', 'oga', 'opus', 'm4a', 'aac', 'webm', 'weba', 'wma', 'aiff', 'aif'];
+      async function copyIntoLibrary(paths) {
+        const { LIBRARY_DIR } = require('./platform');
+        const crypto = require('crypto');
+        await fs.promises.mkdir(LIBRARY_DIR, { recursive: true });
+        const out = [];
+        for (const src of paths) {
+          try {
+            const ext = path.extname(src).slice(1).toLowerCase();
+            if (!AUDIO_EXTENSIONS.includes(ext)) continue;
+            const st = await fs.promises.stat(src);
+            if (!st.isFile()) continue;
+            // same name and size means the same file, so importing twice doesn't duplicate it
+            const id = 'local_' + crypto.createHash('sha1').update(path.basename(src).toLowerCase() + ':' + st.size).digest('hex').slice(0, 14);
+            const file = `${id}.${ext}`;
+            const dest = path.join(LIBRARY_DIR, file);
+            if (!fs.existsSync(dest)) await fs.promises.copyFile(src, dest);
+            out.push({ id, file, name: path.basename(src, path.extname(src)) });
+          } catch (e) {
+            console.warn('Could not import', src, e.message);
+          }
+        }
+        return out;
+      }
+      ipcMain.handle('import-audio-files', async () => {
+        const result = await dialog.showOpenDialog(mainWindow, {
+          properties: ['openFile', 'multiSelections'],
+          filters: [{ name: 'Audio', extensions: AUDIO_EXTENSIONS }]
+        });
+        return result.canceled ? [] : copyIntoLibrary(result.filePaths);
+      });
+      ipcMain.handle('import-audio-paths', async (event, paths) => copyIntoLibrary(Array.isArray(paths) ? paths.filter(p => typeof p === 'string').slice(0, 500) : []));
+
       // true when Chromium draws with a software adapter (no driver, remote desktop, VM)
       ipcMain.handle('gpu-is-software', async () => {
         try {

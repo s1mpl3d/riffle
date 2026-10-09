@@ -79,6 +79,12 @@
           </svg>
           <span>YouTube</span>
         </button>
+        <button class="platform-btn" data-platform="ytmusic" id="platform-ytm" title="YouTube Music: songs only, with album and artists">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zm0 1.6a4.9 4.9 0 1 0 0 9.8 4.9 4.9 0 0 0 0-9.8zM10.2 9.4l4.4 2.6-4.4 2.6z"/>
+          </svg>
+          <span>YT Music</span>
+        </button>
         <button class="platform-btn" data-platform="soundcloud" id="platform-sc" title="SoundCloud">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M11.5 14.5c0 .28-.22.5-.5.5s-.5-.22-.5-.5v-4c0-.28.22-.5.5-.5s.5.22.5.5v4zm-2 0c0 .28-.22.5-.5.5s-.5-.22-.5-.5v-3c0-.28.22-.5.5-.5s.5.22.5.5v3zm-2 0c0 .28-.22.5-.5.5s-.5-.22-.5-.5v-2c0-.28.22-.5.5-.5s.5.22.5.5v2zm-2 0c0 .28-.22.5-.5.5s-.5-.22-.5-.5v-1c0-.28.22-.5.5-.5s.5.22.5.5v1zm14.5-.5c0 1.93-1.57 3.5-3.5 3.5H13V9.1c.7-.6 1.6-1.1 2.6-1.1 2.2 0 4.1 1.6 4.4 3.8.3-.2.7-.3 1-.3 1.4 0 2.5 1.1 2.5 2.5z"/>
@@ -320,6 +326,29 @@
         <div class="tracks-list" id="saved-tracks-list">
           <div class="empty-hint">No saved songs yet. Use the download button on any track.</div>
         </div>
+      </section>
+
+      <section class="content-view" id="view-local">
+        <div class="view-header">
+          <div>
+            <h2>My files</h2>
+            <span class="view-subtitle" id="local-subtitle">Your own audio files</span>
+          </div>
+          <button class="btn-pill-primary" id="btn-add-local-files" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add files
+          </button>
+        </div>
+        <div class="view-search-box" id="local-search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+          <input type="text" class="view-search-input" id="local-search-input" placeholder="Search my files..." autocomplete="off">
+        </div>
+        <div class="local-drop-hint" id="local-drop-hint">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg>
+          <span>Drop audio files here, or use Add files</span>
+          <span class="local-drop-formats">MP3, FLAC, WAV, OGG, Opus, M4A, AAC, WebM, WMA, AIFF</span>
+        </div>
+        <div class="tracks-list" id="local-tracks-list"></div>
       </section>
 
       <section class="content-view" id="view-history">
@@ -1550,6 +1579,34 @@
 
       <div class="settings-footer">
         <button class="btn-pill-primary full-width" id="btn-reset-audio">Reset audio settings</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="spotify-import-modal">
+    <div class="dialog-card spotify-import-card">
+      <div class="dialog-head-row">
+        <h3>Import from Spotify</h3>
+        <button class="btn-icon-pill" id="btn-close-spotify-import" title="Close" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <p class="dialog-hint">Paste the link of a public playlist or album (Share, Copy link). Riffle finds each song on YouTube when you play it.</p>
+      <input type="text" id="spotify-import-url" class="pill-text-input" placeholder="https://open.spotify.com/playlist/..." autocomplete="off" spellcheck="false">
+      <div class="dialog-inputs">
+        <label class="dialog-label">Add the songs to</label>
+        <div class="m3-dropdown" id="spotify-import-target">
+          <button class="m3-dropdown-trigger" type="button">
+            <span>A new playlist</span>
+            <svg class="m3-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="m3-dropdown-menu"></div>
+        </div>
+      </div>
+      <div class="spotify-import-status" id="spotify-import-status" hidden></div>
+      <div class="dialog-actions">
+        <button class="btn-outline-pill" id="btn-cancel-spotify-import" type="button">Cancel</button>
+        <button class="btn-pill-primary" id="btn-confirm-spotify-import" type="button">Import</button>
       </div>
     </div>
   </div>

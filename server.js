@@ -9,12 +9,13 @@ const { spawn } = require("child_process");
 const { StringDecoder } = require("string_decoder");
 
 const PORT = Number(process.env.RIFFLE_PORT) || 38472;
-const { DATA_DIR, CACHE_DIR, CUSTOM_LYRICS_DIR, LYRICS_DIR, THUMBNAILS_DIR, METADATA_PATH, ytDlpCommand, resolveBinary } = require('./platform');
+const { DATA_DIR, CACHE_DIR, CUSTOM_LYRICS_DIR, LYRICS_DIR, THUMBNAILS_DIR, METADATA_PATH, LIBRARY_DIR, LIBRARY_PATH, ytDlpCommand, resolveBinary } = require('./platform');
 
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 if (!fs.existsSync(CUSTOM_LYRICS_DIR)) fs.mkdirSync(CUSTOM_LYRICS_DIR, { recursive: true });
 if (!fs.existsSync(LYRICS_DIR)) fs.mkdirSync(LYRICS_DIR, { recursive: true });
 if (!fs.existsSync(THUMBNAILS_DIR)) fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
+if (!fs.existsSync(LIBRARY_DIR)) fs.mkdirSync(LIBRARY_DIR, { recursive: true });
 
 let trackMetadataIndex = {};
 try {
@@ -581,6 +582,142 @@ function directYoutubeSearch(query, filterSpam = false) {
   });
 }
 
+// YouTube Music search through its own web API: one request returns the songs with artists,
+// album and length, so nothing has to be spawned per result
+async function searchYoutubeMusic(query, limit = 20) {
+  const res = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0', Origin: 'https://music.youtube.com' },
+    // params selects the "Songs" filter
+    body: JSON.stringify({ context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20250101.01.00', hl: 'en' } }, query, params: 'EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D' }),
+    signal: AbortSignal.timeout(9000)
+  });
+  if (!res.ok) throw new Error(`YouTube Music returned ${res.status}`);
+  const data = await res.json();
+  const sections = data.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+  const tracks = [];
+  for (const section of sections) {
+    for (const item of section.musicShelfRenderer?.contents || []) {
+      const r = item.musicResponsiveListItemRenderer;
+      const id = r?.playlistItemData?.videoId;
+      if (!id) continue;
+      const column = (i) => r.flexColumns?.[i]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+      const title = column(0).map(x => x.text).join('').trim() || 'untitled';
+      const details = column(1);
+      const typeOf = (run) => run.navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType || '';
+      const artists = details.filter(run => typeOf(run) === 'MUSIC_PAGE_TYPE_ARTIST').map(run => run.text);
+      const album = (details.find(run => typeOf(run) === 'MUSIC_PAGE_TYPE_ALBUM') || {}).text || '';
+      const lengthText = (details.map(run => run.text).reverse().find(t => /^\d+:\d{2}(?::\d{2})?$/.test(t.trim())) || '0:00').trim();
+      const thumbs = r.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+      const thumb = (thumbs[thumbs.length - 1] || {}).url || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+      tracks.push({
+        id,
+        title,
+        artist: artists.join(', ') || (details[0] && details[0].text) || 'unknown artist',
+        album,
+        duration: parseDurationSeconds(lengthText),
+        thumbnail: thumb.replace(/=w\d+-h\d+/, '=w320-h320'),
+        url: `https://www.youtube.com/watch?v=${id}`,
+        platform: 'youtube',
+        isCached: !!(await findCachedFile(id))
+      });
+      if (tracks.length >= limit) return tracks;
+    }
+  }
+  return tracks;
+}
+
+// ---- My files: audio you added yourself ----------------------------------------------------
+let libraryIndex = {};
+try {
+  if (fs.existsSync(LIBRARY_PATH)) libraryIndex = JSON.parse(fs.readFileSync(LIBRARY_PATH, 'utf-8')) || {};
+} catch (e) {
+  libraryIndex = {};
+}
+function saveLibraryIndex() {
+  fs.promises.writeFile(LIBRARY_PATH, JSON.stringify(libraryIndex), 'utf-8').catch(() => {});
+}
+const LIBRARY_FILE_RE = /^local_[a-f0-9]{14}\.[a-z0-9]{2,5}$/;
+const LIBRARY_MIME = {
+  mp3: 'audio/mpeg', flac: 'audio/flac', wav: 'audio/wav', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg',
+  m4a: 'audio/mp4', aac: 'audio/aac', webm: 'audio/webm', weba: 'audio/webm', wma: 'audio/x-ms-wma', aiff: 'audio/aiff', aif: 'audio/aiff'
+};
+
+// one ffmpeg run reads the tags and duration and, when the file carries a picture, saves it as the cover
+function probeLibraryFile(fullPath, id) {
+  return new Promise((resolve) => {
+    const ffmpeg = resolveBinary('ffmpeg');
+    if (!ffmpeg) return resolve({});
+    const thumbPath = path.join(THUMBNAILS_DIR, `${id}.jpg`);
+    const proc = spawn(ffmpeg, ['-hide_banner', '-nostdin', '-i', fullPath, '-an', '-frames:v', '1', '-vf', 'scale=320:-2', '-y', thumbPath], { windowsHide: true });
+    let err = '';
+    proc.stderr.on('data', d => { if (err.length < 64000) err += d; });
+    const timer = setTimeout(() => proc.kill(), 15000);
+    proc.on('close', () => {
+      clearTimeout(timer);
+      const tag = (name) => {
+        const m = err.match(new RegExp(`^\\s{4}${name}\\s*:\\s*(.+)$`, 'mi'));
+        return m ? m[1].trim() : '';
+      };
+      const d = err.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      resolve({
+        title: tag('title'),
+        artist: tag('artist') || tag('album_artist'),
+        album: tag('album'),
+        duration: d ? Math.round(Number(d[1]) * 3600 + Number(d[2]) * 60 + Number(d[3])) : 0,
+        hasCover: fs.existsSync(thumbPath) && fs.statSync(thumbPath).size > 0
+      });
+    });
+    proc.on('error', () => { clearTimeout(timer); resolve({}); });
+  });
+}
+
+// "01 - Artist - Title" or "Artist - Title" when the file has no tags
+function guessFromFileName(name) {
+  const clean = String(name || '').replace(/^\d{1,3}[\s._-]+/, '').trim() || 'Untitled';
+  const dash = clean.indexOf(' - ');
+  return dash > 0 ? { artist: clean.slice(0, dash).trim(), title: clean.slice(dash + 3).trim() } : { artist: '', title: clean };
+}
+
+function libraryTrack(item) {
+  return {
+    id: item.id,
+    platform: 'local',
+    title: item.title,
+    artist: item.artist || 'Unknown artist',
+    album: item.album || '',
+    duration: item.duration || 0,
+    thumbnail: item.hasCover ? `http://127.0.0.1:${PORT}/api/local-thumbnail?id=${item.id}` : '',
+    addedAt: item.addedAt || 0
+  };
+}
+
+async function handleLibraryFile(req, res, id) {
+  const item = libraryIndex[id];
+  if (!item || !LIBRARY_FILE_RE.test(item.file)) {
+    res.writeHead(404);
+    return res.end('Not in your library');
+  }
+  const filePath = path.join(LIBRARY_DIR, item.file);
+  let stat;
+  try { stat = await fs.promises.stat(filePath); } catch (e) {
+    res.writeHead(404);
+    return res.end('File missing');
+  }
+  const type = LIBRARY_MIME[path.extname(item.file).slice(1)] || 'application/octet-stream';
+  const range = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
+  if (range) {
+    const start = range[1] ? parseInt(range[1], 10) : 0;
+    const end = range[2] ? Math.min(parseInt(range[2], 10), stat.size - 1) : stat.size - 1;
+    res.writeHead(206, { 'Content-Range': `bytes ${start}-${end}/${stat.size}`, 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, 'Content-Type': type });
+    if (req.method === 'HEAD') return res.end();
+    return fs.createReadStream(filePath, { start, end }).pipe(res);
+  }
+  res.writeHead(200, { 'Content-Length': stat.size, 'Content-Type': type, 'Accept-Ranges': 'bytes' });
+  if (req.method === 'HEAD') return res.end();
+  fs.createReadStream(filePath).pipe(res);
+}
+
 const SPOTIFY_URL_RE = /open\.spotify\.com\/(?:intl-[a-z-]+\/)?(?:embed\/)?(track|album|playlist)\/([A-Za-z0-9]+)/i;
 const TIKTOK_URL_RE = /^https?:\/\/(?:[a-z]+\.)?tiktok\.com\//i;
 
@@ -592,15 +729,41 @@ function pickImage(images) {
 
 // Spotify audio is DRM-protected, so only metadata is read from the public embed page;
 // playback goes through the existing searchQuery -> YouTube resolution in app.js.
-async function resolveSpotifyLink(link) {
-  const m = link.match(SPOTIFY_URL_RE);
-  if (!m) return [];
-  const [, type, id] = m;
-  const res = await fetch(`https://open.spotify.com/embed/${type.toLowerCase()}/${id}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+// plain https GET with a hard deadline; used where a stuck request must not hang the caller
+function httpsGetText(url, headers = {}, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        return httpsGetText(new URL(res.headers.location, url).href, headers, timeoutMs).then(resolve, reject);
+      }
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`request returned ${res.statusCode}`));
+      }
+      const dec = new StringDecoder('utf8');
+      let body = '';
+      res.on('data', chunk => { body += dec.write(chunk); });
+      res.on('end', () => resolve(body + dec.end()));
+      res.on('error', reject);
+    });
+    req.setTimeout(timeoutMs, () => req.destroy(new Error('request timed out')));
+    req.on('error', reject);
   });
-  if (!res.ok) throw new Error(`spotify returned ${res.status}`);
-  const html = await res.text();
+}
+
+async function resolveSpotifyLink(link) {
+  return (await readSpotifyEmbed(link)).tracks;
+}
+
+// name and songs of a public Spotify track, album or playlist, read from its embed page
+async function readSpotifyEmbed(link) {
+  const m = link.match(SPOTIFY_URL_RE);
+  if (!m) return { name: '', tracks: [] };
+  const [, type, id] = m;
+  const html = await httpsGetText(`https://open.spotify.com/embed/${type.toLowerCase()}/${id}`, {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  }, 12000);
   const nd = html.match(/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/s);
   if (!nd) throw new Error('could not read spotify page');
   const entity = JSON.parse(nd[1])?.props?.pageProps?.state?.data?.entity;
@@ -611,13 +774,14 @@ async function resolveSpotifyLink(link) {
     ? [{ uri: entity.uri, title: entity.title || entity.name, subtitle: (entity.artists || []).map(a => a.name).join(', '), duration: entity.duration }]
     : (entity.trackList || []);
 
-  return items.filter(t => t && t.title).map(t => metadataTrack({
+  const tracks = items.filter(t => t && t.title).map(t => metadataTrack({
     id: `spotify-${String(t.uri || '').split(':').pop() || Math.random().toString(36).substring(2)}`,
     title: t.title,
     artist: t.subtitle,
     duration: Math.round((Number(t.duration) || 0) / 1000),
     thumbnail: cover
   }));
+  return { name: entity.name || entity.title || '', type: entity.type || type, tracks };
 }
 
 // Catalog-only results (no audio): played through the searchQuery -> YouTube resolution in app.js.
@@ -947,6 +1111,20 @@ async function handleSearch(req, res, query, platform = 'youtube', limit = 20) {
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  }
+
+  if (platform === 'ytmusic') {
+    try {
+      const tracks = await searchYoutubeMusic(trimmed, limit);
+      const result = { success: true, tracks };
+      remember(searchCache, cacheKey, result);
+      if (tracks[0]) setTimeout(() => prefetchTrack(tracks[0].url, tracks[0].id, 'youtube').catch(() => {}), 50);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, tracks: [], error: 'YouTube Music is unavailable right now' }));
     }
   }
 
@@ -2060,6 +2238,98 @@ const server = http.createServer(async (req, res) => {
   if (parsedUrl.pathname === '/api/local-track') {
     const trackId = parsedUrl.query.id || '';
     return handleLocalTrack(req, res, trackId);
+  }
+
+  if (parsedUrl.pathname === '/api/spotify-import') {
+    const link = String(parsedUrl.query.url || '').trim();
+    if (!SPOTIFY_URL_RE.test(link)) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'not a Spotify link' }));
+    }
+    readSpotifyEmbed(link).then((data) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ...data }));
+    }).catch((e) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    });
+    return;
+  }
+
+  if (parsedUrl.pathname === '/api/library') {
+    const list = Object.values(libraryIndex).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).map(libraryTrack);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(list));
+  }
+
+  if (parsedUrl.pathname === '/api/library-file') {
+    return handleLibraryFile(req, res, String(parsedUrl.query.id || ''));
+  }
+
+  if (parsedUrl.pathname === '/api/library-add' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > 500000) req.destroy(); });
+    req.on('end', async () => {
+      const items = (safeJsonParse(body, {}).items || []).filter(i => i && LIBRARY_FILE_RE.test(i.file) && i.file.startsWith(i.id + '.'));
+      const added = [];
+      // one at a time: each probe is an ffmpeg process
+      for (const item of items) {
+        const fullPath = path.join(LIBRARY_DIR, item.file);
+        if (!fs.existsSync(fullPath)) continue;
+        const known = libraryIndex[item.id];
+        const tags = await probeLibraryFile(fullPath, item.id);
+        const guess = guessFromFileName(item.name);
+        libraryIndex[item.id] = {
+          id: item.id,
+          file: item.file,
+          title: tags.title || guess.title,
+          artist: tags.artist || guess.artist,
+          album: tags.album || '',
+          duration: tags.duration || 0,
+          hasCover: Boolean(tags.hasCover),
+          addedAt: known ? known.addedAt : Date.now()
+        };
+        added.push(libraryTrack(libraryIndex[item.id]));
+      }
+      saveLibraryIndex();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, tracks: added }));
+    });
+    return;
+  }
+
+  if (parsedUrl.pathname === '/api/library-remove' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      const id = String(safeJsonParse(body, {}).id || '');
+      const item = libraryIndex[id];
+      if (item) {
+        if (LIBRARY_FILE_RE.test(item.file)) await fs.promises.rm(path.join(LIBRARY_DIR, item.file), { force: true });
+        await fs.promises.rm(path.join(THUMBNAILS_DIR, `${id}.jpg`), { force: true });
+        delete libraryIndex[id];
+        saveLibraryIndex();
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: Boolean(item) }));
+    });
+    return;
+  }
+
+  if (parsedUrl.pathname === '/api/library-update' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      const p = safeJsonParse(body, {});
+      const item = libraryIndex[String(p.id || '')];
+      if (item && Number.isFinite(p.duration) && p.duration > 0 && !item.duration) {
+        item.duration = Math.round(p.duration);
+        saveLibraryIndex();
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: Boolean(item) }));
+    });
+    return;
   }
 
   if (parsedUrl.pathname === '/api/local-thumbnail') {
