@@ -971,6 +971,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentEffectiveMode = mode;
     generateM3Palette(hexColor, mode, intensity, brightness);
     applyTranslucency();
+    // near-gray themes have no colored highlight, so karaoke falls back to brightness
+    document.body.classList.toggle('intensity-zero', (typeof intensity === 'number' ? intensity : 100) < 8);
     document.body.classList.toggle('theme-light', mode === 'light');
     document.body.classList.toggle('theme-dark', mode === 'dark');
     if (el.themeSwatches) {
@@ -1854,6 +1856,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   let animationFrameId = null;
   // read every frame, so kept as plain booleans instead of body class lookups
   const uiFlags = { perf: false, flatScrubber: false };
+  const lyricsTr = {
+    enabled: localStorage.getItem('riffle_tr_enabled') === 'true',
+    auto: localStorage.getItem('riffle_tr_auto') === 'true',
+    target: localStorage.getItem('riffle_tr_lang') || 'auto',
+    active: false,
+    lines: null,
+    token: 0
+  };
+  const tvKaraoke = { open: false, idleTimer: null, home: null, next: null };
 
   function initAudioContext() {
     audioEngine.init(el.nativeAudio, el.tailAudio);
@@ -2223,6 +2234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.rightPanelArtist) el.rightPanelArtist.textContent = track.artist || tr('Unknown artist');
 
     updateRightPanelBanner(cover);
+    if (tvKaraoke.open) updateTvMeta();
     updateFavoriteIcon();
     applyVisualEffects();
     highlightPlayingRow();
@@ -2626,6 +2638,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     flipAnimate([hero], () => {
       panel.classList.toggle('lyrics-empty', !!isEmpty);
     }, 380);
+    if (tvKaraoke.open && tvRoot) tvRoot.classList.toggle('no-lyrics', !!isEmpty);
   }
 
   async function loadSyncedLyrics(title, artist, token) {
@@ -2635,13 +2648,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     state.syncedLyrics = [];
     state.isCustomLyrics = false;
+    resetLyricsTranslation();
 
     try {
       const onlineParam = getAdv('online_lyrics', true) ? '1' : '0';
       const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&online=${onlineParam}`);
       const data = await res.json();
 
-      if (token !== state.loadToken) return;
+      // a slow reply for the previous song must not replace the current one's lyrics
+      if (token !== state.loadToken || (state.currentTrack && (state.currentTrack.title || '') !== title)) return;
 
       if (!data.success || !data.lyrics) {
         if (el.lyricsStatus) el.lyricsStatus.textContent = '';
@@ -2689,6 +2704,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (el.lyricsStatus) el.lyricsStatus.textContent = data.isCustom ? (hasSyncTimes ? tr('Custom synced') : tr('Custom')) : (hasSyncTimes ? tr('Synced') : tr('Plain'));
       renderLyricsView();
       setLyricsEmpty(false);
+      if (lyricsTr.enabled && lyricsTr.auto) showLyricsTranslation(true);
       if (el.lyricsContainer) {
         el.lyricsContainer.style.opacity = '0';
         requestAnimationFrame(() => {
@@ -2729,6 +2745,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         div.textContent = line.text;
       }
 
+      const translated = lyricsTr.active && lyricsTr.lines ? lyricsTr.lines[index] : '';
+      if (translated && translated.toLowerCase() !== line.text.replace(/<[^>]+>/g, '').trim().toLowerCase()) {
+        const trDiv = document.createElement('div');
+        trDiv.className = 'lyric-translation';
+        trDiv.textContent = translated;
+        div.appendChild(trDiv);
+      }
+
       if (line.time >= 0) {
         div.addEventListener('click', () => {
           const seekTime = getLineStartTime(index);
@@ -2737,6 +2761,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       el.lyricsContainer.appendChild(div);
     });
+    lyricsFocusIndex = -2;
   }
 
   const CUSTOM_SHIFT_LEAD_SECONDS = 4.0;
@@ -2763,8 +2788,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     return start + 4.0;
   }
 
+  let lyricsFocusIndex = -2;
   function updateSyncedLyricsHighlight(currentTime) {
-    if (state.syncedLyrics.length === 0 || !state.isWindowVisible) return;
+    if (state.syncedLyrics.length === 0 || (!state.isWindowVisible && !tvKaraoke.open)) return;
     let activeIndex = -1;
 
     const validLines = [];
@@ -2807,7 +2833,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    document.querySelectorAll('.lyric-line').forEach((lineEl, idx) => {
+    const lineEls = document.querySelectorAll('.lyric-line');
+    if (activeIndex !== lyricsFocusIndex) {
+      // distance from the sung line drives the fade when "focus on the current line" is on
+      lyricsFocusIndex = activeIndex;
+      lineEls.forEach((lineEl, idx) => lineEl.style.setProperty('--dist', activeIndex < 0 ? 0 : Math.min(5, Math.abs(idx - activeIndex))));
+    }
+    lineEls.forEach((lineEl, idx) => {
       if (idx === activeIndex) {
         if (!lineEl.classList.contains('active')) {
           lineEl.classList.add('active');
@@ -2901,11 +2933,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function saveCustomLyrics() {
     if (!state.currentTrack || !el.customLyricsTextarea) return;
+    // an empty editor removes your lyrics and brings back the ones found online
     const text = el.customLyricsTextarea.value.trim();
-    if (!text) {
-      showToast(tr('Please enter some lyrics first'), 'info');
-      return;
-    }
 
     const title = state.currentTrack.title || '';
     const artist = state.currentTrack.artist || '';
@@ -2922,7 +2951,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || tr('Save failed'));
 
-      showToast(tr('Lyrics saved successfully'), 'info');
+      showToast(text ? tr('Lyrics saved successfully') : tr('Your lyrics were removed'), 'info');
       closeCustomLyricsEditor();
       loadSyncedLyrics(title, artist, state.loadToken);
     } catch (e) {
@@ -2980,6 +3009,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderSyncLines() {
     if (!el.syncModeLyrics) return;
+    // rebuilding the list would reset the scroll and make it jump
+    const keepScroll = el.syncModeLyrics.scrollTop;
     el.syncModeLyrics.innerHTML = '';
     syncState.lines.forEach((line, idx) => {
       const div = document.createElement('div');
@@ -3001,11 +3032,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       el.syncModeLyrics.appendChild(div);
     });
 
+    el.syncModeLyrics.scrollTop = keepScroll;
     updateSyncProgress();
 
+    // scroll only the list, not the page around it
     const nextEl = el.syncModeLyrics.querySelector('.next-line');
     if (nextEl) {
-      nextEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const box = el.syncModeLyrics;
+      const top = box.scrollTop + (nextEl.getBoundingClientRect().top - box.getBoundingClientRect().top) - box.clientHeight / 2 + nextEl.clientHeight / 2;
+      box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
   }
 
@@ -3233,6 +3268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const dur = el.nativeAudio.duration || (state.currentTrack ? state.currentTrack.duration : 0);
 
       updateSyncedLyricsHighlight(cur);
+      if (tvKaraoke.open) updateTvProgress(cur, dur);
 
       if (isDraggingScrubber) return;
       if (!state.isPlaying) hasDrawnPausedFrame = false;
@@ -6973,6 +7009,270 @@ document.addEventListener('DOMContentLoaded', async () => {
     const track = trackToDownload;
     if (el.downloadModal) closeModal(el.downloadModal);
     if (track) setTimeout(() => openTrackRenameDialog(track), 180);
+  });
+
+  // ---- lyrics: focus, translation, karaoke on the whole screen ---------------------------------
+
+  bindLocalSwitch('btn-lyrics-focus', 'riffle_lyrics_focus', true, (on) => document.body.classList.toggle('lyrics-focus', on));
+
+  // translation targets, named in their own language; 'auto' follows the app language
+  const TRANSLATE_LANGUAGES = {
+    en: 'English', pt: 'Português', es: 'Español', fr: 'Français', de: 'Deutsch', it: 'Italiano',
+    pl: 'Polski', tr: 'Türkçe', ru: 'Русский', uk: 'Українська', ja: '日本語', ko: '한국어',
+    'zh-CN': '简体中文', ar: 'العربية', hi: 'हिन्दी', id: 'Bahasa Indonesia', nl: 'Nederlands'
+  };
+  function translateTarget() {
+    if (lyricsTr.target !== 'auto') return lyricsTr.target;
+    const app = (window.i18n && window.i18n.lang) || 'en';
+    return app === 'zh-CN' ? 'zh-CN' : app.split('-')[0];
+  }
+  function resetLyricsTranslation() {
+    lyricsTr.active = false;
+    lyricsTr.lines = null;
+    lyricsTr.token++;
+    syncTranslateUI();
+  }
+  function syncTranslateUI() {
+    const btn = document.getElementById('btn-translate-lyrics');
+    if (btn) {
+      btn.hidden = !lyricsTr.enabled;
+      btn.classList.toggle('active', lyricsTr.active);
+      btn.classList.toggle('busy', lyricsTr.active && !lyricsTr.lines);
+      btn.title = lyricsTr.active ? tr('Hide translation') : tr('Show translation');
+    }
+    document.querySelectorAll('.tr-dependent').forEach(n => n.classList.toggle('is-disabled', !lyricsTr.enabled));
+    const sw = document.getElementById('btn-tr-enabled');
+    const swAuto = document.getElementById('btn-tr-auto');
+    if (sw) sw.classList.toggle('active', lyricsTr.enabled);
+    if (swAuto) swAuto.classList.toggle('active', lyricsTr.auto);
+  }
+  async function showLyricsTranslation(quiet = false) {
+    if (!state.syncedLyrics.length) return;
+    lyricsTr.active = true;
+    lyricsTr.lines = null;
+    const token = ++lyricsTr.token;
+    syncTranslateUI();
+    const target = translateTarget();
+    try {
+      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, lines: state.syncedLyrics.map(l => l.text.replace(/<[^>]+>/g, '').trim()) })
+      });
+      const data = await res.json();
+      if (token !== lyricsTr.token) return;
+      if (!data.success) throw new Error(data.error || 'failed');
+      if (data.source && data.source.split('-')[0] === target.split('-')[0]) {
+        lyricsTr.active = false;
+        if (!quiet) showToast(tr('These lyrics are already in that language'));
+      } else {
+        lyricsTr.lines = data.translations;
+      }
+    } catch (e) {
+      if (token !== lyricsTr.token) return;
+      lyricsTr.active = false;
+      if (!quiet) showToast(tr('Could not translate the lyrics right now'), 'error');
+    }
+    syncTranslateUI();
+    renderLyricsView();
+    if (el.nativeAudio) updateSyncedLyricsHighlight(el.nativeAudio.currentTime || 0);
+  }
+  function hideLyricsTranslation() {
+    lyricsTr.active = false;
+    lyricsTr.token++;
+    syncTranslateUI();
+    renderLyricsView();
+    if (el.nativeAudio) updateSyncedLyricsHighlight(el.nativeAudio.currentTime || 0);
+  }
+  const btnTranslateLyrics = document.getElementById('btn-translate-lyrics');
+  if (btnTranslateLyrics) btnTranslateLyrics.addEventListener('click', () => {
+    if (lyricsTr.active) hideLyricsTranslation();
+    else showLyricsTranslation(false);
+  });
+  const btnTrEnabled = document.getElementById('btn-tr-enabled');
+  if (btnTrEnabled) btnTrEnabled.addEventListener('click', () => {
+    lyricsTr.enabled = !lyricsTr.enabled;
+    localStorage.setItem('riffle_tr_enabled', String(lyricsTr.enabled));
+    if (!lyricsTr.enabled && lyricsTr.active) hideLyricsTranslation();
+    else syncTranslateUI();
+  });
+  const btnTrAuto = document.getElementById('btn-tr-auto');
+  if (btnTrAuto) btnTrAuto.addEventListener('click', () => {
+    lyricsTr.auto = !lyricsTr.auto;
+    localStorage.setItem('riffle_tr_auto', String(lyricsTr.auto));
+    syncTranslateUI();
+    if (lyricsTr.enabled && lyricsTr.auto && !lyricsTr.active) showLyricsTranslation(true);
+  });
+
+  // a small reusable dropdown for menus that are filled from code
+  function bindDropdown(rootId, options, current, onPick) {
+    const root = document.getElementById(rootId);
+    if (!root) return null;
+    const trigger = root.querySelector('.m3-dropdown-trigger');
+    const label = root.querySelector('.m3-dropdown-trigger span');
+    const menu = root.querySelector('.m3-dropdown-menu');
+    menu.innerHTML = '';
+    const select = (value) => {
+      menu.querySelectorAll('.m3-dropdown-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+      const opt = options.find(o => o.value === value);
+      if (label && opt) label.textContent = opt.label;
+    };
+    options.forEach(o => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'm3-dropdown-option';
+      btn.dataset.value = o.value;
+      btn.textContent = o.label;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        select(o.value);
+        root.classList.remove('open');
+        onPick(o.value);
+      });
+      menu.appendChild(btn);
+    });
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.m3-dropdown.open').forEach(d => { if (d !== root) d.classList.remove('open'); });
+      root.classList.toggle('open');
+    });
+    document.addEventListener('click', () => root.classList.remove('open'));
+    select(current);
+    return { select };
+  }
+  bindDropdown('tr-lang-dropdown',
+    [{ value: 'auto', label: tr('App language') }].concat(Object.entries(TRANSLATE_LANGUAGES).map(([value, label]) => ({ value, label }))),
+    lyricsTr.target,
+    (value) => {
+      lyricsTr.target = value;
+      localStorage.setItem('riffle_tr_lang', value);
+      if (lyricsTr.active) showLyricsTranslation(false);
+    });
+  syncTranslateUI();
+
+  // karaoke on the whole screen: the lyrics list moves into the overlay and back
+  const tvRoot = document.getElementById('tv-karaoke');
+
+  function paintTvBackdrop() {
+    const backdrop = document.getElementById('tv-backdrop');
+    if (!backdrop) return;
+    const old = backdrop.querySelector('video');
+    if (old) { old.removeAttribute('src'); old.load(); }
+    backdrop.innerHTML = '';
+    backdrop.style.backgroundImage = '';
+    const track = state.currentTrack;
+    const cover = coverOf(track);
+    const source = getAdv('banners', true) ? bannerSourceFor(track, cover) : cover;
+    backdrop.classList.toggle('from-cover', source === cover);
+    if (isVideoUrl(source)) {
+      const v = document.createElement('video');
+      v.muted = true;
+      v.loop = true;
+      v.playsInline = true;
+      v.src = source;
+      if (!uiFlags.perf) v.play().catch(() => {});
+      backdrop.appendChild(v);
+    } else if (source) {
+      backdrop.style.backgroundImage = `url("${source}")`;
+    }
+  }
+  function updateTvMeta() {
+    const track = state.currentTrack;
+    const cover = document.getElementById('tv-cover');
+    if (cover) { cover.src = coverOf(track); cover.hidden = !coverOf(track); }
+    const title = document.getElementById('tv-title');
+    const artist = document.getElementById('tv-artist');
+    if (title) title.textContent = track ? track.title || tr('Untitled') : tr('No track playing');
+    if (artist) artist.textContent = track ? track.artist || '' : '';
+    if (tvRoot) tvRoot.classList.toggle('no-lyrics', !state.syncedLyrics.length);
+    paintTvBackdrop();
+  }
+  function updateTvProgress(cur, dur) {
+    const fill = document.getElementById('tv-bar-fill');
+    if (fill) fill.style.transform = `scaleX(${dur > 0 ? Math.min(1, cur / dur) : 0})`;
+    const c = document.getElementById('tv-time-cur');
+    const d = document.getElementById('tv-time-dur');
+    if (c) c.textContent = formatDuration(cur);
+    if (d) d.textContent = formatDuration(dur);
+  }
+  function wakeTv() {
+    if (!tvKaraoke.open || !tvRoot) return;
+    tvRoot.classList.remove('idle');
+    clearTimeout(tvKaraoke.idleTimer);
+    tvKaraoke.idleTimer = setTimeout(() => { if (tvKaraoke.open) tvRoot.classList.add('idle'); }, 2800);
+  }
+  function openTvKaraoke() {
+    if (tvKaraoke.open || !tvRoot || !el.lyricsContainer) return;
+    tvKaraoke.open = true;
+    tvKaraoke.home = el.lyricsContainer.parentElement;
+    tvKaraoke.next = el.lyricsContainer.nextSibling;
+    document.getElementById('tv-lyrics-slot').appendChild(el.lyricsContainer);
+    updateTvMeta();
+    tvRoot.hidden = false;
+    document.body.classList.add('tv-open');
+    if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+    wakeTv();
+    if (el.nativeAudio) {
+      const cur = el.nativeAudio.currentTime || 0;
+      lyricsFocusIndex = -2;
+      updateSyncedLyricsHighlight(cur);
+      updateTvProgress(cur, el.nativeAudio.duration || (state.currentTrack ? state.currentTrack.duration : 0));
+    }
+    requestAnimationFrame(centerActiveLyric);
+    setTimeout(centerActiveLyric, 350);
+  }
+  function closeTvKaraoke() {
+    if (!tvKaraoke.open || !tvRoot) return;
+    tvKaraoke.open = false;
+    clearTimeout(tvKaraoke.idleTimer);
+    tvRoot.hidden = true;
+    tvRoot.classList.remove('idle');
+    document.body.classList.remove('tv-open');
+    const v = tvRoot.querySelector('#tv-backdrop video');
+    if (v) { v.removeAttribute('src'); v.load(); v.remove(); }
+    if (tvKaraoke.home) tvKaraoke.home.insertBefore(el.lyricsContainer, tvKaraoke.next);
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    if (el.nativeAudio) {
+      lyricsFocusIndex = -2;
+      updateSyncedLyricsHighlight(el.nativeAudio.currentTime || 0);
+    }
+    requestAnimationFrame(centerActiveLyric);
+  }
+  // puts the sung line in the middle after the list moved between the panel and the overlay
+  function centerActiveLyric() {
+    const box = el.lyricsContainer;
+    const line = box && box.querySelector('.lyric-line.active');
+    if (!line) return;
+    const target = box.scrollTop + (line.getBoundingClientRect().top - box.getBoundingClientRect().top) - box.clientHeight / 2 + line.clientHeight / 2;
+    box.scrollTop = Math.max(0, target);
+  }
+
+  function toggleTvKaraoke() {
+    if (tvKaraoke.open) closeTvKaraoke();
+    else openTvKaraoke();
+  }
+  // leaving fullscreen with the system keys also leaves karaoke
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && tvKaraoke.open) closeTvKaraoke(); });
+  const btnTvKaraoke = document.getElementById('btn-tv-karaoke');
+  if (btnTvKaraoke) btnTvKaraoke.addEventListener('click', openTvKaraoke);
+  const btnCloseTv = document.getElementById('btn-close-tv-karaoke');
+  if (btnCloseTv) btnCloseTv.addEventListener('click', closeTvKaraoke);
+  if (tvRoot) {
+    tvRoot.addEventListener('pointermove', wakeTv);
+    tvRoot.addEventListener('pointerdown', wakeTv);
+  }
+  [['btn-tv-prev', () => playPrev()], ['btn-tv-play', () => togglePlayPause()], ['btn-tv-next', () => playNext()]].forEach(([id, fn]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', fn);
+  });
+  const tvBar = document.getElementById('tv-bar');
+  if (tvBar) tvBar.addEventListener('click', (e) => {
+    if (!el.nativeAudio) return;
+    const r = tvBar.getBoundingClientRect();
+    const dur = el.nativeAudio.duration || 0;
+    if (r.width > 0 && dur > 0) el.nativeAudio.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * dur;
   });
 
   // ---- appearance -------------------------------------------------------------------------

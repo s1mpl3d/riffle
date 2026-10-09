@@ -1,5 +1,6 @@
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
@@ -188,6 +189,57 @@ function isSpamOrUnofficial(title, duration, channelName = '') {
   if (badKeywords.some(bad => combined.includes(bad))) return true;
 
   return false;
+}
+
+// lyrics translation through Google's public translate endpoint. Lines go in batches joined
+// by newlines; a batch whose line count comes back different is redone line by line
+const translateCache = new Map();
+const TRANSLATE_CACHE_MAX = 40;
+
+async function googleTranslate(text, target) {
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(9000) });
+  if (!res.ok) throw new Error(`translate returned ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data) || !Array.isArray(data[0])) throw new Error('unexpected translate reply');
+  return { text: data[0].map(part => (part && part[0]) || '').join(''), source: typeof data[2] === 'string' ? data[2] : '' };
+}
+
+async function translateLines(lines, target) {
+  const key = target + '\u0000' + lines.join('\n');
+  if (translateCache.has(key)) return translateCache.get(key);
+  const out = new Array(lines.length).fill('');
+  let source = '';
+  const batches = [];
+  let batch = [];
+  let size = 0;
+  lines.forEach((line, i) => {
+    if (batch.length && size + line.length + 1 > 1500) { batches.push(batch); batch = []; size = 0; }
+    batch.push(i);
+    size += line.length + 1;
+  });
+  if (batch.length) batches.push(batch);
+  for (const idxs of batches) {
+    const texts = idxs.map(i => lines[i]);
+    let parts = null;
+    try {
+      const r = await googleTranslate(texts.join('\n'), target);
+      source = source || r.source;
+      parts = r.text.split('\n');
+    } catch (e) {}
+    if (!parts || parts.length !== texts.length) {
+      parts = [];
+      for (const t of texts) {
+        if (!t.trim()) { parts.push(''); continue; }
+        try { parts.push((await googleTranslate(t, target)).text); } catch (e) { parts.push(''); }
+      }
+    }
+    idxs.forEach((lineIdx, j) => { out[lineIdx] = (parts[j] || '').trim(); });
+  }
+  const result = { translations: out, source };
+  translateCache.set(key, result);
+  if (translateCache.size > TRANSLATE_CACHE_MAX) translateCache.delete(translateCache.keys().next().value);
+  return result;
 }
 
 function safeJsonParse(value, fallback) {
@@ -1498,15 +1550,37 @@ function fetchLyricsDirect(title, artist) {
   });
 }
 
-function getCustomLyricsPath(title, artist) {
+// lyrics files are named by a hash of artist + title. The old names replaced every non-Latin
+// character with "_", so titles in other scripts collided; those old files are still read when
+// the title has no such characters
+function lyricsFileKey(title, artist) {
+  return crypto.createHash('sha1').update(`${(artist || '').trim().toLowerCase()}\u0000${(title || '').trim().toLowerCase()}`).digest('hex').slice(0, 16);
+}
+const isPlainAscii = (text) => /^[\x00-\x7F]*$/.test(text);
+
+function legacyCustomLyricsPath(title, artist) {
   const safeName = `${(artist || 'unknown').replace(/[^\w\s-]/g, '_')}_${(title || 'untitled').replace(/[^\w\s-]/g, '_')}.lrc`.toLowerCase().replace(/\s+/g, '_');
   return path.join(CUSTOM_LYRICS_DIR, safeName);
 }
 
-function getFetchedLyricsPath(title, artist) {
+function legacyFetchedLyricsPath(title, artist) {
   const cleanTitle = (title || '').replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
   const cleanArtist = (artist || '').replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
   return path.join(LYRICS_DIR, `${cleanArtist}___${cleanTitle}.lrc`);
+}
+
+function pickLyricsPath(dir, legacy, title, artist) {
+  const hashed = path.join(dir, lyricsFileKey(title, artist) + '.lrc');
+  if (!fs.existsSync(hashed) && isPlainAscii((title || '') + (artist || '')) && fs.existsSync(legacy)) return legacy;
+  return hashed;
+}
+
+function getCustomLyricsPath(title, artist) {
+  return pickLyricsPath(CUSTOM_LYRICS_DIR, legacyCustomLyricsPath(title, artist), title, artist);
+}
+
+function getFetchedLyricsPath(title, artist) {
+  return pickLyricsPath(LYRICS_DIR, legacyFetchedLyricsPath(title, artist), title, artist);
 }
 
 async function handleLyrics(req, res, title, artist, allowOnline = true) {
@@ -1565,13 +1639,17 @@ async function handleSaveCustomLyrics(req, res, title, artist) {
   req.on('end', async () => {
     try {
       const { lyrics } = JSON.parse(body);
-      if (!lyrics) {
+      if (typeof lyrics !== 'string') {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ success: false, error: 'No lyrics provided' }));
       }
 
-      const customPath = getCustomLyricsPath(title, artist);
-      await fs.promises.writeFile(customPath, lyrics, 'utf-8');
+      // saved under the hashed name; an empty editor removes your lyrics so the found ones come back
+      const hashedPath = path.join(CUSTOM_LYRICS_DIR, lyricsFileKey(title, artist) + '.lrc');
+      const legacyPath = legacyCustomLyricsPath(title, artist);
+      if (lyrics.trim()) await fs.promises.writeFile(hashedPath, lyrics, 'utf-8');
+      else await fs.promises.rm(hashedPath, { force: true });
+      if (isPlainAscii((title || '') + (artist || ''))) await fs.promises.rm(legacyPath, { force: true });
 
       const cacheKey = `${artist}:${title}`;
       lyricsCache.delete(cacheKey);
@@ -1741,6 +1819,25 @@ const server = http.createServer(async (req, res) => {
   }
 
   const parsedUrl = url.parse(req.url, true);
+
+  if (parsedUrl.pathname === '/api/translate' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > 200000) req.destroy(); });
+    req.on('end', async () => {
+      const payload = safeJsonParse(body, {});
+      const lines = Array.isArray(payload.lines) ? payload.lines.map(l => String(l || '')).slice(0, 400) : [];
+      const target = /^[a-zA-Z-]{2,8}$/.test(payload.target || '') ? payload.target : 'en';
+      try {
+        const result = lines.length ? await translateLines(lines, target) : { translations: [], source: '' };
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, ...result }));
+      } catch (e) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
 
   if (parsedUrl.pathname === '/api/state' && req.method === 'POST') {
     let body = '';
