@@ -21,14 +21,17 @@ Riffle is a fork of [Riff](https://github.com/rootscripts/riff) by rootless, wit
 * Autoplay: when the queue runs low, similar songs are added automatically
 * Session restore: the queue and position come back when you reopen the app
 * Keeps playing in the tray when the window is closed
+* Media keys on your keyboard or headset, also on Windows while another window is in front (can be turned off)
 
 ### Mini player
 
 A small always-on-top window with cover, progress and controls. Open it from the player bar, the tray menu or with `Ctrl+Alt+P`.
 
-### Global shortcuts
+### Keyboard shortcuts
 
-These work even while Riffle is minimized or hidden in the tray (they can be turned off in Settings):
+Inside the window: `Space` play / pause, `←` `→` seek 5 seconds, `Ctrl+←` `Ctrl+→` previous / next song, `↑` `↓` volume, `M` mute, `H` shuffle, `R` repeat, `F` like, `L` lyrics, `K` karaoke, `P` mini player, `S` audio effects, `/` or `Ctrl+K` search, `Esc` closes the top dialog. Press `?` for the full list.
+
+Global shortcuts work even while Riffle is minimized or hidden in the tray (they can be turned off in Settings):
 
 | Shortcut | Action |
 | --- | --- |
@@ -40,7 +43,7 @@ These work even while Riffle is minimized or hidden in the tray (they can be tur
 
 ### Search
 
-* YouTube and SoundCloud, plus Spotify and TikTok (experimental)
+* YouTube, YouTube Music (songs only, with album and artists) and SoundCloud, plus Spotify and TikTok (experimental)
 * Paste a Spotify or TikTok link to play it directly
 * Autocomplete with songs from your library, your recent searches and YouTube suggestions
 
@@ -50,12 +53,15 @@ Spotify audio is not streamed: Riffle reads the track info and plays the matchin
 
 * Save songs for offline listening (stored in `Music\Riffle`)
 * Playlists, favorites and a Saved view
+* My files: add your own audio files (button or drag and drop); tags and cover are read with ffmpeg
+* Import a public Spotify playlist or album into a new or existing playlist
 * Reads common audio tags: title, artist, album, track number, cover art
 
 ### Audio editor
 
 * Speed up / slow down in real time
-* Reverb, distortion and an equalizer
+* Reverb, distortion and a three-band equalizer
+* Presets glide into each other instead of jumping
 * Trim the start or end, select a part of a song and save it as a separate file
 
 ### Lyrics
@@ -63,6 +69,13 @@ Spotify audio is not streamed: Riffle reads the track info and plays the matchin
 * Online search, enabled by default
 * Plain text and LRC files
 * Word-by-word sync, manual timing and online auto timing
+* Focus on the sung line, translation through Google Translate, and karaoke on the whole screen
+
+### Appearance
+
+* Material You colors, a gradient editor, panel and text opacity
+* Wallpaper and banner from an image or video, or the album art of the current song; per-song cover and banner
+* Performance mode for slower computers (turned on automatically when there is no graphics acceleration)
 
 ### Discord Rich Presence
 

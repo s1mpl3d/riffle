@@ -5443,5 +5443,4 @@ body.dropping-files::after {
 .tools-error[hidden] { display: none; }
 @keyframes tools-spin { to { transform: rotate(360deg); } }
 body.perf .tools-row[data-state="active"] .tools-row-icon { animation: none; }
-.shortcuts-open-btn { align-self: flex-start; margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; }
 .setting-item[hidden] { display: none; }

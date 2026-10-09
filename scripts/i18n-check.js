@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 
 // proper names, units and formats that read the same in every language
-const SKIP = /^(Riffle|Riff|s1mpl3d|YouTube|SoundCloud|Spotify|TikTok|Rock|Phonk|Synthwave|English|Ctrl|Alt|P|BETA|Client ID|Client Secret|MP3|FLAC|M4A|AAC|Opus|WAV|PCM|[\d.+\-]+ ?(px|s|x|st|kbps)|.*\(.*(Restorer|Upscaler|Depth)\))$/;
+const SKIP = /^(Riffle|Riff|s1mpl3d|YouTube|YT Music|SoundCloud|Spotify|TikTok|Rock|Phonk|Synthwave|English|Ctrl|Alt|Esc|[A-Z]|yt-dlp|ffmpeg|https?:\/\/.*|MP3, FLAC.*|-?\d+ dB|BETA|Client ID|Client Secret|MP3|FLAC|M4A|AAC|Opus|WAV|PCM|[\d.+\-]+ ?(px|s|x|st|kbps)|.*\(.*(Restorer|Upscaler|Depth)\))$/;
 
 function decode(s) {
   return s.replace(/&#10;/g, '\n').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
