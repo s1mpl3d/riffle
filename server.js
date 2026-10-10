@@ -819,8 +819,8 @@ function getJukeboxAnalysis(id, saved) {
   if (jukeboxJobs.has(key)) return jukeboxJobs.get(key);
   const out = path.join(JUKEBOX_DIR, key + '.json');
   const job = (async () => {
-    const saved = safeJsonParse(await fs.promises.readFile(out, 'utf8').catch(() => ''), null);
-    if (saved && saved.version === jukebox.VERSION) return saved;
+    const cached = safeJsonParse(await fs.promises.readFile(out, 'utf8').catch(() => ''), null);
+    if (cached && cached.version === jukebox.VERSION) return cached;
     const file = await jukeboxSource(id, saved);
     if (!file) throw new Error('not downloaded');
     const ffmpeg = resolveBinary('ffmpeg');
