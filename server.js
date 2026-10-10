@@ -800,6 +800,41 @@ function metadataTrack({ id, title, artist, duration, thumbnail }) {
   };
 }
 
+const JUKEBOX_DIR = path.join(DATA_DIR, 'jukebox');
+const jukebox = require('./jukebox');
+const jukeboxJobs = new Map();
+let jukeboxChain = Promise.resolve();
+
+async function jukeboxSource(id) {
+  if (id.startsWith('local_')) {
+    const item = libraryIndex[id];
+    return item && LIBRARY_FILE_RE.test(item.file) ? path.join(LIBRARY_DIR, item.file) : null;
+  }
+  return findCachedFile(id);
+}
+
+function getJukeboxAnalysis(id) {
+  const key = cleanTrackId(id);
+  if (jukeboxJobs.has(key)) return jukeboxJobs.get(key);
+  const out = path.join(JUKEBOX_DIR, key + '.json');
+  const job = (async () => {
+    const saved = safeJsonParse(await fs.promises.readFile(out, 'utf8').catch(() => ''), null);
+    if (saved && saved.version === jukebox.VERSION) return saved;
+    const file = await jukeboxSource(id);
+    if (!file) throw new Error('not downloaded');
+    const ffmpeg = resolveBinary('ffmpeg');
+    if (!ffmpeg) throw new Error('ffmpeg not found');
+    const run = jukeboxChain.then(() => jukebox.analyzeFile(ffmpeg, file));
+    jukeboxChain = run.catch(() => {});
+    const data = await run;
+    await fs.promises.mkdir(JUKEBOX_DIR, { recursive: true });
+    await fs.promises.writeFile(out, JSON.stringify(data));
+    return data;
+  })().finally(() => jukeboxJobs.delete(key));
+  jukeboxJobs.set(key, job);
+  return job;
+}
+
 const SPOTIFY_CONFIG_PATH = path.join(DATA_DIR, 'spotify.json');
 let spotifyToken = { value: null, expiresAt: 0 };
 
@@ -2233,6 +2268,18 @@ const server = http.createServer(async (req, res) => {
     const duration = parsedUrl.query.duration || 0;
     const thumbnail = parsedUrl.query.thumbnail || '';
     return handleStreamInfo(req, res, trackUrl, trackId, platform, title, artist, duration, thumbnail);
+  }
+
+  if (parsedUrl.pathname === '/api/jukebox') {
+    const id = String(parsedUrl.query.id || '');
+    getJukeboxAnalysis(id).then((data) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ...data }));
+    }).catch((e) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    });
+    return;
   }
 
   if (parsedUrl.pathname === '/api/local-track') {
