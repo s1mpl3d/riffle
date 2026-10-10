@@ -337,6 +337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let jukebox = null;
   let jukeboxBusy = false;
+  let jukeboxView = null;
 
   const state = {
     platform: 'youtube',
@@ -4181,7 +4182,137 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (jukebox) jukebox.stop();
     const btn = document.getElementById('btn-jukebox');
     if (btn) btn.classList.remove('active', 'loading');
+    if (jukeboxView) jukeboxView.hide();
   }
+
+  // circle of beats with the jumps the current setting allows
+  jukeboxView = (() => {
+    const panel = document.getElementById('jukebox-panel');
+    const canvas = document.getElementById('jukebox-canvas');
+    const stats = document.getElementById('jukebox-stats');
+    const slider = document.getElementById('slider-jukebox-jumps');
+    const label = document.getElementById('val-jukebox-jumps');
+    let a = null, bests = [], layer = null, current = -1, lastJump = null, jumps = 0, timers = [];
+    const SIZE = 232;
+
+    const amount = () => parseInt(localStorage.getItem('riffle_jukebox_jumps') || '40', 10);
+    const thresholdFor = (v) => {
+      if (!bests.length) return a ? a.threshold : 0;
+      const q = 0.05 + (v / 100) * 0.55;
+      return bests[Math.min(bests.length - 1, Math.floor(q * bests.length))];
+    };
+    const point = (i, r) => {
+      const ang = (i / a.beats.length) * Math.PI * 2 - Math.PI / 2;
+      return [SIZE / 2 + Math.cos(ang) * r, SIZE / 2 + Math.sin(ang) * r];
+    };
+    const color = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#ccc';
+    const R = SIZE / 2 - 8;
+
+    function arc(ctx, i, j) {
+      const [x1, y1] = point(i, R), [x2, y2] = point(j, R);
+      ctx.moveTo(x1, y1);
+      ctx.quadraticCurveTo(SIZE / 2 + (x1 + x2 - SIZE) * 0.15, SIZE / 2 + (y1 + y2 - SIZE) * 0.15, x2, y2);
+    }
+
+    function buildLayer() {
+      if (!a || !canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      layer = document.createElement('canvas');
+      layer.width = layer.height = SIZE * dpr;
+      const ctx = layer.getContext('2d');
+      ctx.scale(dpr, dpr);
+      const thr = jukebox ? jukebox.threshold : a.threshold;
+      ctx.strokeStyle = color('--md-sys-color-primary');
+      ctx.globalAlpha = 0.28;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      a.branches.forEach((list, i) => list.forEach(([j, d]) => { if (d <= thr && j > i) arc(ctx, i, j + 1); }));
+      ctx.stroke();
+      if (a.exit) {
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = color('--md-sys-color-tertiary');
+        ctx.beginPath();
+        arc(ctx, a.exit.from, a.exit.to + 1);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color('--md-sys-color-outline-variant');
+      for (let i = 0; i < a.beats.length; i++) {
+        const [x, y] = point(i, R);
+        ctx.fillRect(x - 1, y - 1, 2, 2);
+      }
+    }
+
+    function draw() {
+      if (!a || !canvas || panel.hidden) return;
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== SIZE * dpr) canvas.width = canvas.height = SIZE * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (layer) ctx.drawImage(layer, 0, 0);
+      ctx.scale(dpr, dpr);
+      const primary = color('--md-sys-color-primary');
+      if (lastJump) {
+        ctx.strokeStyle = primary;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        arc(ctx, lastJump[0], lastJump[1]);
+        ctx.stroke();
+      }
+      if (current >= 0) {
+        const [x, y] = point(current, R);
+        ctx.fillStyle = primary;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (stats) stats.textContent = `${Math.round(a.bpm)} BPM · ${trn(jumps, '{n} jump', '{n} jumps')}`;
+    }
+
+    const at = (when, fn) => {
+      const delay = Math.max(0, (when - audioEngine.ctx.currentTime) * 1000);
+      timers.push(setTimeout(() => { timers.shift(); fn(); }, delay));
+    };
+
+    function applyAmount(v) {
+      if (label) label.textContent = `${v}%`;
+      if (jukebox) jukebox.setThreshold(thresholdFor(v));
+      buildLayer();
+      draw();
+    }
+
+    if (slider) {
+      slider.value = amount();
+      if (label) label.textContent = `${amount()}%`;
+      slider.addEventListener('input', () => {
+        const v = parseInt(slider.value, 10);
+        localStorage.setItem('riffle_jukebox_jumps', String(v));
+        applyAmount(v);
+      });
+      slider.addEventListener('dblclick', () => { slider.value = 40; slider.dispatchEvent(new Event('input')); });
+    }
+    const off = document.getElementById('btn-jukebox-off');
+    if (off) off.addEventListener('click', () => { stopJukebox(); showToast(tr('Jukebox off')); });
+
+    return {
+      show(player, analysis) {
+        a = analysis;
+        bests = analysis.branches.map(l => (l[0] ? l[0][1] : Infinity)).filter(isFinite).sort((x, y) => x - y);
+        current = -1; lastJump = null; jumps = 0;
+        player.onBeat = (i, when) => at(when, () => { current = i; draw(); });
+        player.onJump = (i, next, when) => at(when, () => { lastJump = [i, next]; jumps++; });
+        if (panel) panel.hidden = false;
+        applyAmount(amount());
+      },
+      hide() {
+        timers.forEach(clearTimeout);
+        timers = [];
+        if (panel) panel.hidden = true;
+        a = null; layer = null;
+      }
+    };
+  })();
 
   function jukeboxSource(track) {
     const base = `http://127.0.0.1:${state.serverPort}`;
@@ -4217,6 +4348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!jukebox) jukebox = new JukeboxPlayer(audioEngine, el.nativeAudio);
       await jukebox.load(source.url, res);
       if (state.currentTrack !== track) return;
+      jukeboxView.show(jukebox, res);
       jukebox.start();
       if (btn) btn.classList.add('active');
       showToast(tr('Jukebox on: {bpm} BPM, {n} beats', { bpm: Math.round(res.bpm), n: res.beats.length }));

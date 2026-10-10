@@ -73,6 +73,8 @@
 
     get beatCount() { return this.a ? this.a.beats.length : 0; }
 
+    setThreshold(t) { this.threshold = t; }
+
     _beatEnd(i) {
       const b = this.a.beats;
       return i + 1 < b.length ? b[i + 1] : Math.min(this.a.duration, b[i] + (b[i] - b[i - 1]));
