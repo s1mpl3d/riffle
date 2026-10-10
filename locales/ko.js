@@ -581,5 +581,13 @@ window.RIFFLE_LOCALE = {
   "Drop shadows under the panels and dialogs. Off in performance mode": "패널과 대화 상자 아래에 그림자를 표시합니다. 성능 모드에서는 꺼짐",
   "Shadow spread": "그림자 퍼짐",
   "Tight": "좁게",
-  "Wide": "넓게"
+  "Wide": "넓게",
+
+  // jukebox
+  "Jukebox: plays the song forever, jumping between similar beats (J)": "주크박스: 비슷한 비트 사이를 건너뛰며 곡을 끝없이 재생 (J)",
+  "Jukebox": "주크박스",
+  "Jukebox off": "주크박스 꺼짐",
+  "The song is still downloading. Try again in a moment": "곡을 아직 다운로드하는 중입니다. 잠시 후 다시 시도하세요",
+  "Could not analyze this song": "이 곡을 분석할 수 없습니다",
+  "Jukebox on: {bpm} BPM, {n} beats": "주크박스 켜짐: {bpm} BPM, {n}비트"
 };

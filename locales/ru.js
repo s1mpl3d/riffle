@@ -583,5 +583,13 @@ window.RIFFLE_LOCALE = {
   "Drop shadows under the panels and dialogs. Off in performance mode": "Тени под панелями и окнами. Выключены в режиме производительности",
   "Shadow spread": "Размытие тени",
   "Tight": "Узкая",
-  "Wide": "Широкая"
+  "Wide": "Широкая",
+
+  // jukebox
+  "Jukebox: plays the song forever, jumping between similar beats (J)": "Джукбокс: играет песню бесконечно, перескакивая между похожими долями (J)",
+  "Jukebox": "Джукбокс",
+  "Jukebox off": "Джукбокс выключен",
+  "The song is still downloading. Try again in a moment": "Песня ещё загружается. Попробуйте чуть позже",
+  "Could not analyze this song": "Не удалось проанализировать эту песню",
+  "Jukebox on: {bpm} BPM, {n} beats": "Джукбокс включён: {bpm} BPM, долей: {n}"
 };

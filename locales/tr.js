@@ -581,5 +581,13 @@ window.RIFFLE_LOCALE = {
   "Drop shadows under the panels and dialogs. Off in performance mode": "Paneller ve pencerelerin altında gölge. Performans modunda kapalı",
   "Shadow spread": "Gölge yayılımı",
   "Tight": "Dar",
-  "Wide": "Geniş"
+  "Wide": "Geniş",
+
+  // jukebox
+  "Jukebox: plays the song forever, jumping between similar beats (J)": "Jukebox: şarkıyı benzer vuruşlar arasında atlayarak sonsuza dek çalar (J)",
+  "Jukebox": "Jukebox",
+  "Jukebox off": "Jukebox kapalı",
+  "The song is still downloading. Try again in a moment": "Şarkı hâlâ indiriliyor. Birazdan tekrar deneyin",
+  "Could not analyze this song": "Bu şarkı analiz edilemedi",
+  "Jukebox on: {bpm} BPM, {n} beats": "Jukebox açık: {bpm} BPM, {n} vuruş"
 };

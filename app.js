@@ -335,6 +335,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const rawCustomPresets = JSON.parse(localStorage.getItem('devsize_custom_presets') || '[]');
   const normalizedCustomPresets = rawCustomPresets.map(normalizePreset).filter(Boolean);
 
+  let jukebox = null;
+  let jukeboxBusy = false;
+
   const state = {
     platform: 'youtube',
     currentView: 'discover',
@@ -1671,6 +1674,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function maybeStartCrossfade() {
     const a = el.nativeAudio;
     if (!a || !el.tailAudio || crossfade.active || a.paused || hlsInstance || !audioEngine.canCrossfade()) return;
+    if (jukebox && jukebox.active) return;
     const looping = state.isRepeat;
     if (looping ? !state.crossfadeLoop : !state.crossfadeEnabled) return;
     const dur = a.duration;
@@ -2484,6 +2488,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function playTrack(track, queueList = null, startIndex = -1, context = null) {
+    stopJukebox();
     if (!track || !el.nativeAudio) return;
     initAudioContext();
 
@@ -4172,9 +4177,63 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast(tr('Volume {value}%', { value: Math.round(state.volume * 100) }));
   }
 
+  function stopJukebox() {
+    if (jukebox) jukebox.stop();
+    const btn = document.getElementById('btn-jukebox');
+    if (btn) btn.classList.remove('active', 'loading');
+  }
+
+  function jukeboxSource(track) {
+    const base = `http://127.0.0.1:${state.serverPort}`;
+    const src = (el.nativeAudio && el.nativeAudio.currentSrc) || '';
+    if (src.startsWith(base)) {
+      const u = new URL(src);
+      if (u.pathname === '/api/saved-file') return { query: 'saved=' + encodeURIComponent(u.searchParams.get('name') || ''), url: src };
+      if (u.pathname === '/api/library-file' || u.pathname === '/api/local-track') return { query: 'id=' + encodeURIComponent(u.searchParams.get('id') || ''), url: src };
+    }
+    return { query: 'id=' + encodeURIComponent(track.id || ''), url: `${base}/api/local-track?id=${encodeURIComponent(track.id || '')}` };
+  }
+
+  async function toggleJukebox() {
+    if (jukebox && jukebox.active) {
+      stopJukebox();
+      showToast(tr('Jukebox off'));
+      return;
+    }
+    const track = state.currentTrack;
+    const btn = document.getElementById('btn-jukebox');
+    if (!track || jukeboxBusy) return;
+    jukeboxBusy = true;
+    if (btn) btn.classList.add('loading');
+    try {
+      initAudioContext();
+      const source = jukeboxSource(track);
+      const res = await (await fetch(`http://127.0.0.1:${state.serverPort}/api/jukebox?${source.query}`)).json();
+      if (!res.success) {
+        showToast(res.error === 'not downloaded' ? tr('The song is still downloading. Try again in a moment') : tr('Could not analyze this song'), 'error');
+        return;
+      }
+      if (state.currentTrack !== track) return;
+      if (!jukebox) jukebox = new JukeboxPlayer(audioEngine, el.nativeAudio);
+      await jukebox.load(source.url, res);
+      if (state.currentTrack !== track) return;
+      jukebox.start();
+      if (btn) btn.classList.add('active');
+      showToast(tr('Jukebox on: {bpm} BPM, {n} beats', { bpm: Math.round(res.bpm), n: res.beats.length }));
+    } catch (e) {
+      showToast(tr('Could not analyze this song'), 'error');
+    } finally {
+      jukeboxBusy = false;
+      if (btn) btn.classList.remove('loading');
+    }
+  }
+
   function toggleMiniPlayer() {
     if (window.electronAPI && window.electronAPI.toggleMini) window.electronAPI.toggleMini();
   }
+
+  const btnJukebox = document.getElementById('btn-jukebox');
+  if (btnJukebox) btnJukebox.addEventListener('click', () => toggleJukebox());
 
   const btnMiniPlayer = document.getElementById('btn-mini-player');
   if (btnMiniPlayer) btnMiniPlayer.addEventListener('click', toggleMiniPlayer);
@@ -5927,6 +5986,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     l: () => el.btnToggleLyricsPanel && el.btnToggleLyricsPanel.click(),
     k: () => (tvKaraoke.open ? closeTvKaraoke() : openTvKaraoke()),
     p: () => toggleMiniPlayer(),
+    j: () => toggleJukebox(),
     s: () => toggleModal(el.audioSettingsModal),
     '?': () => toggleModal(shortcutsModal),
     '/': () => focusSearch()

@@ -581,5 +581,13 @@ window.RIFFLE_LOCALE = {
   "Drop shadows under the panels and dialogs. Off in performance mode": "Schlagschatten unter den Bereichen und Dialogen. Im Leistungsmodus aus",
   "Shadow spread": "Schattenweite",
   "Tight": "Eng",
-  "Wide": "Weit"
+  "Wide": "Weit",
+
+  // jukebox
+  "Jukebox: plays the song forever, jumping between similar beats (J)": "Jukebox: spielt den Song endlos und springt zwischen ähnlichen Beats (J)",
+  "Jukebox": "Jukebox",
+  "Jukebox off": "Jukebox aus",
+  "The song is still downloading. Try again in a moment": "Der Song wird noch heruntergeladen. Versuche es gleich noch einmal",
+  "Could not analyze this song": "Dieser Song konnte nicht analysiert werden",
+  "Jukebox on: {bpm} BPM, {n} beats": "Jukebox an: {bpm} BPM, {n} Beats"
 };

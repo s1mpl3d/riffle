@@ -5464,3 +5464,11 @@ html.flat-ui #ui-shadows, body.perf #ui-shadows, body.tv-open #ui-shadows { disp
 .modal-backdrop .dialog-card, .modal-backdrop .settings-card {
   box-shadow: 0 calc(8px + 12px * var(--ui-spread)) calc(24px + 32px * var(--ui-spread)) rgba(0, 0, 0, calc(0.3 + 0.25 * var(--ui-depth)));
 }
+
+#btn-jukebox { transition: background-color 150ms, color 150ms; }
+#btn-jukebox.active {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+#btn-jukebox.loading svg { animation: jukebox-pulse 0.9s ease-in-out infinite; }
+@keyframes jukebox-pulse { 50% { opacity: 0.35; } }

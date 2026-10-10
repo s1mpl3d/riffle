@@ -1344,6 +1344,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
       </button>
 
+      <button class="btn-icon-pill" id="btn-jukebox" title="Jukebox: plays the song forever, jumping between similar beats (J)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.2 8.4c2.4 0 3.8 1.6 3.8 3.6s-1.4 3.6-3.8 3.6c-3.6 0-8.8-7.2-12.4-7.2C3.4 8.4 2 10 2 12s1.4 3.6 3.8 3.6c3.6 0 8.8-7.2 12.4-7.2z"></path></svg>
+      </button>
+
       <button class="btn-icon-pill" id="btn-mini-player" title="Mini player (Ctrl+Alt+P)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"></rect><rect x="12" y="12" width="7" height="5" rx="1.2" fill="currentColor" stroke="none"></rect></svg>
       </button>
@@ -1660,6 +1664,7 @@
             <span class="shortcut-keys"><kbd>L</kbd></span><span>Lyrics panel</span>
             <span class="shortcut-keys"><kbd>K</kbd></span><span>Karaoke on the whole screen</span>
             <span class="shortcut-keys"><kbd>P</kbd></span><span>Mini player</span>
+            <span class="shortcut-keys"><kbd>J</kbd></span><span>Jukebox</span>
             <span class="shortcut-keys"><kbd>S</kbd></span><span>Audio effects</span>
             <span class="shortcut-keys"><kbd>/</kbd></span><span>Search</span>
             <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>K</kbd></span><span>Search</span>
@@ -2018,6 +2023,7 @@
 
   <script src="i18n.js"></script>
   <script src="audio-engine.js"></script>
+  <script src="jukebox-player.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
