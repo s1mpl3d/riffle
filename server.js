@@ -805,7 +805,8 @@ const jukebox = require('./jukebox');
 const jukeboxJobs = new Map();
 let jukeboxChain = Promise.resolve();
 
-async function jukeboxSource(id) {
+async function jukeboxSource(id, saved) {
+  if (saved) return resolveSavedFile(saved);
   if (id.startsWith('local_')) {
     const item = libraryIndex[id];
     return item && LIBRARY_FILE_RE.test(item.file) ? path.join(LIBRARY_DIR, item.file) : null;
@@ -813,14 +814,14 @@ async function jukeboxSource(id) {
   return findCachedFile(id);
 }
 
-function getJukeboxAnalysis(id) {
-  const key = cleanTrackId(id);
+function getJukeboxAnalysis(id, saved) {
+  const key = saved ? 'saved_' + crypto.createHash('sha1').update(saved).digest('hex').slice(0, 16) : cleanTrackId(id);
   if (jukeboxJobs.has(key)) return jukeboxJobs.get(key);
   const out = path.join(JUKEBOX_DIR, key + '.json');
   const job = (async () => {
     const saved = safeJsonParse(await fs.promises.readFile(out, 'utf8').catch(() => ''), null);
     if (saved && saved.version === jukebox.VERSION) return saved;
-    const file = await jukeboxSource(id);
+    const file = await jukeboxSource(id, saved);
     if (!file) throw new Error('not downloaded');
     const ffmpeg = resolveBinary('ffmpeg');
     if (!ffmpeg) throw new Error('ffmpeg not found');
@@ -2272,7 +2273,12 @@ const server = http.createServer(async (req, res) => {
 
   if (parsedUrl.pathname === '/api/jukebox') {
     const id = String(parsedUrl.query.id || '');
-    getJukeboxAnalysis(id).then((data) => {
+    const saved = String(parsedUrl.query.saved || '');
+    if (!id && !saved) {
+      res.writeHead(400);
+      return res.end();
+    }
+    getJukeboxAnalysis(id, saved).then((data) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, ...data }));
     }).catch((e) => {
