@@ -7,7 +7,7 @@ const FPS = SR / HOP;
 const BANDS = 24;
 const MIN_JUMP = 8;
 const MAX_BRANCHES = 4;
-const VERSION = 1;
+const VERSION = 2;
 
 const tick = () => new Promise(r => setImmediate(r));
 
@@ -124,7 +124,66 @@ async function frameFeatures(pcm) {
   return { nFrames, onset, chroma, timbre, loud };
 }
 
-// tempo from the autocorrelation of the onset curve, beats from dynamic programming (Ellis 2007)
+// tempo in 8 s windows, smoothed with viterbi so it can drift but not jump an octave
+async function localPeriods(o, mean, globalLag, minLag, maxLag) {
+  const n = o.length;
+  const W = Math.round(8 * FPS), H = Math.round(FPS);
+  const per = new Float64Array(n).fill(globalLag);
+  if (n < W * 1.5) return per;
+  const lags = [];
+  for (let L = minLag; L <= maxLag; L++) lags.push(L);
+  const centers = [], acs = [];
+  for (let c = W >> 1; c + (W >> 1) <= n; c += H) {
+    if (centers.length % 6 === 0) await tick();
+    const s0 = c - (W >> 1), s1 = c + (W >> 1);
+    const ac = new Float64Array(maxLag + 2);
+    let v0 = 0;
+    for (let i = s0; i < s1; i++) v0 += (o[i] - mean) ** 2;
+    v0 = v0 / (s1 - s0) || 1;
+    for (let L = minLag - 1; L <= maxLag + 1; L++) {
+      let sum = 0;
+      for (let i = s0 + L; i < s1; i++) sum += (o[i] - mean) * (o[i - L] - mean);
+      ac[L] = sum / (s1 - s0 - L) / v0;
+    }
+    centers.push(c);
+    acs.push(ac);
+  }
+  const prior = (L) => 0.5 * Math.log2(L / globalLag) ** 2;
+  const trans = (a, b) => 20 * Math.log2(a / b) ** 2;
+  let total = lags.map(L => acs[0][L] - prior(L));
+  const back = [];
+  for (let w = 1; w < acs.length; w++) {
+    if (w % 100 === 0) await tick();
+    const bk = new Int16Array(lags.length);
+    total = lags.map((L, k) => {
+      let best = -Infinity;
+      for (let q = 0; q < lags.length; q++) {
+        const v = total[q] - trans(L, lags[q]);
+        if (v > best) { best = v; bk[k] = q; }
+      }
+      return best + acs[w][L] - prior(L);
+    });
+    back.push(bk);
+  }
+  let k = total.indexOf(Math.max(...total));
+  const path = new Array(acs.length);
+  for (let w = acs.length - 1; w >= 0; w--) {
+    const L = lags[k], ac = acs[w];
+    const den = ac[L - 1] - 2 * ac[L] + ac[L + 1];
+    path[w] = den < 0 ? L + Math.max(-0.5, Math.min(0.5, 0.5 * (ac[L - 1] - ac[L + 1]) / den)) : L;
+    if (w > 0) k = back[w - 1][k];
+  }
+  for (let t = 0; t < n; t++) {
+    if (t <= centers[0]) { per[t] = path[0]; continue; }
+    if (t >= centers[centers.length - 1]) { per[t] = path[path.length - 1]; continue; }
+    const w = Math.floor((t - centers[0]) / H);
+    const f = (t - centers[w]) / H;
+    per[t] = path[w] * (1 - f) + path[w + 1] * f;
+  }
+  return per;
+}
+
+// beats by dynamic programming over the onset curve (Ellis 2007), with a period that follows the local tempo
 async function trackBeats(onsetRaw) {
   const n = onsetRaw.length;
   const o = new Float64Array(n);
@@ -161,26 +220,30 @@ async function trackBeats(onsetRaw) {
   const period = den ? best + Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / den)) : best;
   await tick();
 
+  const per = await localPeriods(o, mean / sd, period, minLag, maxLag);
   const score = new Float64Array(n);
   const back = new Int32Array(n).fill(-1);
-  const lo = Math.round(period / 2), hi = Math.round(period * 2);
   for (let t = 0; t < n; t++) {
     if (t % 2000 === 0) await tick();
+    const P = per[t];
+    const lo = Math.round(P / 2), hi = Math.round(P * 2);
     let bestPrev = -1, bestVal = -Infinity;
     for (let p = t - hi; p <= t - lo; p++) {
       if (p < 0) continue;
-      const v = score[p] - 100 * Math.log((t - p) / period) ** 2;
+      const v = score[p] - 100 * Math.log((t - p) / P) ** 2;
       if (v > bestVal) { bestVal = v; bestPrev = p; }
     }
     score[t] = o[t] + (bestPrev >= 0 ? bestVal : 0);
     back[t] = bestPrev;
   }
   let end = n - 1;
-  for (let t = Math.max(0, n - Math.round(period)); t < n; t++) if (score[t] > score[end]) end = t;
+  for (let t = Math.max(0, n - Math.round(per[n - 1])); t < n; t++) if (score[t] > score[end]) end = t;
   const beats = [];
   for (let t = end; t >= 0; t = back[t]) beats.push(t);
   beats.reverse();
-  return { beats, bpm: 60 * FPS / period, period };
+  const sorted = [...per].sort((x, y) => x - y);
+  const median = sorted[sorted.length >> 1];
+  return { beats, bpm: 60 * FPS / median, period: median };
 }
 
 function quantile(arr, q) {
