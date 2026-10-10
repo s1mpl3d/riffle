@@ -584,10 +584,20 @@ window.RIFFLE_LOCALE = {
   "Wide": "宽广",
 
   // jukebox
-  "Jukebox: plays the song forever, jumping between similar beats (J)": "点唱机：在相似节拍间跳转，无限播放这首歌 (J)",
   "Jukebox": "点唱机",
   "Jukebox off": "点唱机已关闭",
   "The song is still downloading. Try again in a moment": "歌曲仍在下载，请稍后再试",
   "Could not analyze this song": "无法分析这首歌",
-  "Jukebox on: {bpm} BPM, {n} beats": "点唱机已开启：{bpm} BPM，{n} 拍"
+  "Jukebox on: {bpm} BPM, {n} beats": "点唱机已开启：{bpm} BPM，{n} 拍",
+
+  // jukebox
+  "Turn off the jukebox": "关闭点唱机",
+  "Jukebox (beta): plays the song forever, jumping between similar beats (J)": "点唱机（测试版）：在相似节拍间跳转，无限播放这首歌 (J)",
+  "Beta": "测试版",
+  "Jumps": "跳转",
+  "Fewer": "更少",
+  "More": "更多",
+  "Jukebox (beta)": "点唱机（测试版）",
+  "{n} jump": "{n} 次跳转",
+  "{n} jumps": "{n} 次跳转"
 };

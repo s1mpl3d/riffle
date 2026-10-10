@@ -584,10 +584,20 @@ window.RIFFLE_LOCALE = {
   "Wide": "Geniş",
 
   // jukebox
-  "Jukebox: plays the song forever, jumping between similar beats (J)": "Jukebox: şarkıyı benzer vuruşlar arasında atlayarak sonsuza dek çalar (J)",
   "Jukebox": "Jukebox",
   "Jukebox off": "Jukebox kapalı",
   "The song is still downloading. Try again in a moment": "Şarkı hâlâ indiriliyor. Birazdan tekrar deneyin",
   "Could not analyze this song": "Bu şarkı analiz edilemedi",
-  "Jukebox on: {bpm} BPM, {n} beats": "Jukebox açık: {bpm} BPM, {n} vuruş"
+  "Jukebox on: {bpm} BPM, {n} beats": "Jukebox açık: {bpm} BPM, {n} vuruş",
+
+  // jukebox
+  "Turn off the jukebox": "Jukebox'ı kapat",
+  "Jukebox (beta): plays the song forever, jumping between similar beats (J)": "Jukebox (beta): şarkıyı benzer vuruşlar arasında atlayarak sonsuza dek çalar (J)",
+  "Beta": "Beta",
+  "Jumps": "Atlamalar",
+  "Fewer": "Daha az",
+  "More": "Daha çok",
+  "Jukebox (beta)": "Jukebox (beta)",
+  "{n} jump": "{n} atlama",
+  "{n} jumps": "{n} atlama"
 };

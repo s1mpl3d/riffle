@@ -584,10 +584,20 @@ window.RIFFLE_LOCALE = {
   "Wide": "広い",
 
   // jukebox
-  "Jukebox: plays the song forever, jumping between similar beats (J)": "ジュークボックス: 似たビートの間をジャンプして曲を終わりなく再生 (J)",
   "Jukebox": "ジュークボックス",
   "Jukebox off": "ジュークボックス オフ",
   "The song is still downloading. Try again in a moment": "曲はまだダウンロード中です。少ししてからもう一度お試しください",
   "Could not analyze this song": "この曲を解析できませんでした",
-  "Jukebox on: {bpm} BPM, {n} beats": "ジュークボックス オン: {bpm} BPM、{n} ビート"
+  "Jukebox on: {bpm} BPM, {n} beats": "ジュークボックス オン: {bpm} BPM、{n} ビート",
+
+  // jukebox
+  "Turn off the jukebox": "ジュークボックスをオフ",
+  "Jukebox (beta): plays the song forever, jumping between similar beats (J)": "ジュークボックス (ベータ): 似たビートの間をジャンプして曲を終わりなく再生 (J)",
+  "Beta": "ベータ",
+  "Jumps": "ジャンプ",
+  "Fewer": "少なく",
+  "More": "多く",
+  "Jukebox (beta)": "ジュークボックス (ベータ)",
+  "{n} jump": "{n} 回ジャンプ",
+  "{n} jumps": "{n} 回ジャンプ"
 };

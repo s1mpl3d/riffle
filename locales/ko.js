@@ -584,10 +584,20 @@ window.RIFFLE_LOCALE = {
   "Wide": "넓게",
 
   // jukebox
-  "Jukebox: plays the song forever, jumping between similar beats (J)": "주크박스: 비슷한 비트 사이를 건너뛰며 곡을 끝없이 재생 (J)",
   "Jukebox": "주크박스",
   "Jukebox off": "주크박스 꺼짐",
   "The song is still downloading. Try again in a moment": "곡을 아직 다운로드하는 중입니다. 잠시 후 다시 시도하세요",
   "Could not analyze this song": "이 곡을 분석할 수 없습니다",
-  "Jukebox on: {bpm} BPM, {n} beats": "주크박스 켜짐: {bpm} BPM, {n}비트"
+  "Jukebox on: {bpm} BPM, {n} beats": "주크박스 켜짐: {bpm} BPM, {n}비트",
+
+  // jukebox
+  "Turn off the jukebox": "주크박스 끄기",
+  "Jukebox (beta): plays the song forever, jumping between similar beats (J)": "주크박스 (베타): 비슷한 비트 사이를 건너뛰며 곡을 끝없이 재생 (J)",
+  "Beta": "베타",
+  "Jumps": "점프",
+  "Fewer": "적게",
+  "More": "많이",
+  "Jukebox (beta)": "주크박스 (베타)",
+  "{n} jump": "{n}회 점프",
+  "{n} jumps": "{n}회 점프"
 };

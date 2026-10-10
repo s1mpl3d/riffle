@@ -586,10 +586,20 @@ window.RIFFLE_LOCALE = {
   "Wide": "Широкая",
 
   // jukebox
-  "Jukebox: plays the song forever, jumping between similar beats (J)": "Джукбокс: играет песню бесконечно, перескакивая между похожими долями (J)",
   "Jukebox": "Джукбокс",
   "Jukebox off": "Джукбокс выключен",
   "The song is still downloading. Try again in a moment": "Песня ещё загружается. Попробуйте чуть позже",
   "Could not analyze this song": "Не удалось проанализировать эту песню",
-  "Jukebox on: {bpm} BPM, {n} beats": "Джукбокс включён: {bpm} BPM, долей: {n}"
+  "Jukebox on: {bpm} BPM, {n} beats": "Джукбокс включён: {bpm} BPM, долей: {n}",
+
+  // jukebox
+  "Turn off the jukebox": "Выключить джукбокс",
+  "Jukebox (beta): plays the song forever, jumping between similar beats (J)": "Джукбокс (бета): играет песню бесконечно, перескакивая между похожими долями (J)",
+  "Beta": "Бета",
+  "Jumps": "Прыжки",
+  "Fewer": "Меньше",
+  "More": "Больше",
+  "Jukebox (beta)": "Джукбокс (бета)",
+  "{n} jump": "{n} прыжок",
+  "{n} jumps": "Прыжков: {n}"
 };

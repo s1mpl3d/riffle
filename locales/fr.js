@@ -584,10 +584,20 @@ window.RIFFLE_LOCALE = {
   "Wide": "Large",
 
   // jukebox
-  "Jukebox: plays the song forever, jumping between similar beats (J)": "Jukebox : joue le titre sans fin en sautant entre des temps similaires (J)",
   "Jukebox": "Jukebox",
   "Jukebox off": "Jukebox désactivée",
   "The song is still downloading. Try again in a moment": "Le titre est encore en téléchargement. Réessayez dans un instant",
   "Could not analyze this song": "Impossible d'analyser ce titre",
-  "Jukebox on: {bpm} BPM, {n} beats": "Jukebox activée : {bpm} BPM, {n} temps"
+  "Jukebox on: {bpm} BPM, {n} beats": "Jukebox activée : {bpm} BPM, {n} temps",
+
+  // jukebox
+  "Turn off the jukebox": "Désactiver la jukebox",
+  "Jukebox (beta): plays the song forever, jumping between similar beats (J)": "Jukebox (bêta) : joue le titre sans fin en sautant entre des temps similaires (J)",
+  "Beta": "Bêta",
+  "Jumps": "Sauts",
+  "Fewer": "Moins",
+  "More": "Plus",
+  "Jukebox (beta)": "Jukebox (bêta)",
+  "{n} jump": "{n} saut",
+  "{n} jumps": "{n} sauts"
 };
