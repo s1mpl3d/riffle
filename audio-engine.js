@@ -56,6 +56,12 @@
         distortion: 0,
         volume: 1.0,
         echo: 0,
+        lowpass: 0,
+        highpass: 0,
+        bitcrush: 0,
+        tremolo: 0,
+        pan8d: 0,
+        chorus: 0,
         eq: { low: 0, mid: 0, high: 0 }
       };
       this.isMuted = false;
@@ -90,6 +96,12 @@
         }
       }
       return curve;
+    }
+
+    // past 100% the clean signal fades out, so 300% is all fuzz
+    _distortionMix(amount) {
+      const makeup = amount > 100 ? 1 + (amount - 100) / 200 * 0.85 : 1;
+      return { wet: 0.75 * Math.min(1, amount / 100) * makeup, dry: Math.max(0, 1 - amount / 250) };
     }
 
     _makeHarmonicCurve(amount = 0) {
@@ -214,7 +226,9 @@
           this.reverbGain.connect(this.masterGain);
 
           this.eqNodes = this._buildEq(this.ctx, this.audioSettings.eq);
-          this.masterGain.connect(this.eqNodes.input);
+          this.postFx = this._buildPostFx(this.ctx);
+          this.masterGain.connect(this.postFx.input);
+          this.postFx.output.connect(this.eqNodes.input);
           this.eqNodes.output.connect(this.analyserNode);
           this.analyserNode.connect(this.ctx.destination);
 
@@ -306,6 +320,88 @@
       return nodes;
     }
 
+    // filters, lo-fi, tremolo, 8D panning and chorus, in series after the main mix
+    _buildPostFx(ctx) {
+      const input = ctx.createGain();
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = 'lowpass';
+      lowpass.Q.value = 0.9;
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.Q.value = 0.7;
+      const crush = ctx.createWaveShaper();
+      const trem = ctx.createGain();
+      const tremLfo = ctx.createOscillator();
+      tremLfo.frequency.value = 6;
+      const tremDepth = ctx.createGain();
+      tremLfo.connect(tremDepth);
+      tremDepth.connect(trem.gain);
+      const pan = ctx.createStereoPanner();
+      const panLfo = ctx.createOscillator();
+      panLfo.frequency.value = 0.12;
+      const panDepth = ctx.createGain();
+      panLfo.connect(panDepth);
+      panDepth.connect(pan.pan);
+      const chorusDry = ctx.createGain();
+      const chorusDelay = ctx.createDelay(0.1);
+      chorusDelay.delayTime.value = 0.022;
+      const chorusLfo = ctx.createOscillator();
+      chorusLfo.frequency.value = 1.3;
+      const chorusMod = ctx.createGain();
+      chorusMod.gain.value = 0.004;
+      chorusLfo.connect(chorusMod);
+      chorusMod.connect(chorusDelay.delayTime);
+      const chorusWet = ctx.createGain();
+      const output = ctx.createGain();
+
+      input.connect(lowpass);
+      lowpass.connect(highpass);
+      highpass.connect(crush);
+      crush.connect(trem);
+      trem.connect(pan);
+      pan.connect(chorusDry);
+      pan.connect(chorusDelay);
+      chorusDelay.connect(chorusWet);
+      chorusDry.connect(output);
+      chorusWet.connect(output);
+      [tremLfo, panLfo, chorusLfo].forEach(o => o.start());
+
+      const fx = { input, output, crushBits: null };
+      fx.update = (st, smooth) => {
+        const set = (param, v) => {
+          if (smooth) param.setTargetAtTime(v, ctx.currentTime, 0.03);
+          else param.value = v;
+        };
+        const lp = (st.lowpass || 0) / 100, hp = (st.highpass || 0) / 100;
+        set(lowpass.frequency, 20000 * Math.pow(250 / 20000, lp));
+        set(highpass.frequency, hp ? 20 * Math.pow(3000 / 20, hp) : 10);
+        const bits = st.bitcrush ? Math.round(16 - (st.bitcrush / 100) * 14) : 0;
+        if (bits !== fx.crushBits) {
+          fx.crushBits = bits;
+          crush.curve = bits ? this._makeCrushCurve(bits) : null;
+        }
+        const t = (st.tremolo || 0) / 100;
+        set(trem.gain, 1 - t / 2);
+        set(tremDepth.gain, t / 2);
+        set(panDepth.gain, (st.pan8d || 0) / 100);
+        const c = (st.chorus || 0) / 100;
+        set(chorusWet.gain, c * 0.7);
+        set(chorusDry.gain, 1 - c * 0.3);
+      };
+      return fx;
+    }
+
+    _makeCrushCurve(bits) {
+      const n = 4096;
+      const steps = Math.pow(2, bits - 1);
+      const curve = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        const x = (i * 2) / (n - 1) - 1;
+        curve[i] = Math.round(x * steps) / steps;
+      }
+      return curve;
+    }
+
     _setEqGains(nodes, eq, ctx, smooth = true) {
       if (!nodes) return;
       const db = (v) => Math.max(-12, Math.min(12, Number(v) || 0));
@@ -346,6 +442,7 @@
       }
 
       if (this.eqNodes) this._setEqGains(this.eqNodes, s.eq, this.ctx, true);
+      if (this.postFx) this.postFx.update(s, true);
 
       if (this.reverbGain) this.reverbGain.gain.value = s.reverb / 100;
 
@@ -353,9 +450,11 @@
 
       if (this.distortionNode && this.distortionGain) {
         if (s.distortion > 0) {
+          const mix = this._distortionMix(s.distortion);
+          this.distortionNode.oversample = s.distortion > 100 ? '2x' : 'none';
           this.distortionNode.curve = this._makeDistortionCurve(s.distortion);
-          this.distortionGain.gain.value = (s.distortion / 100) * 0.75;
-          if (this.dryGain) this.dryGain.gain.value = 1.0 - (s.distortion / 100) * 0.4;
+          this.distortionGain.gain.value = mix.wet;
+          if (this.dryGain) this.dryGain.gain.value = mix.dry;
         } else {
           this.distortionGain.gain.value = 0.0;
           if (this.dryGain) this.dryGain.gain.value = 1.0;
@@ -376,6 +475,7 @@
       const s = this.audioSettings;
       return s.speed !== 1.0 || s.speedPitch !== 1.0 || s.pitch !== 0 ||
         s.reverb !== 0 || s.distortion !== 0 || s.volume !== 1.0 || s.echo !== 0 ||
+        Boolean(s.lowpass || s.highpass || s.bitcrush || s.tremolo || s.pan8d || s.chorus) ||
         Boolean(s.eq && (s.eq.low || s.eq.mid || s.eq.high));
     }
 
@@ -550,7 +650,10 @@
         sat.connect(limiter);
         limiter.connect(master);
         const eqHq = this._buildEq(offline, s.eq);
-        master.connect(eqHq.input);
+        const postHq = this._buildPostFx(offline);
+        postHq.update(s, false);
+        master.connect(postHq.input);
+        postHq.output.connect(eqHq.input);
         eqHq.output.connect(offline.destination);
 
       } else {
@@ -572,9 +675,11 @@
         echoGain.gain.value = s.echo / 100;
 
         if (s.distortion > 0) {
+          const mix = this._distortionMix(s.distortion);
+          if (s.distortion > 100) distNode.oversample = '2x';
           distNode.curve = this._makeDistortionCurve(s.distortion);
-          distGain.gain.value = (s.distortion / 100) * 0.75;
-          dry.gain.value = 1.0 - (s.distortion / 100) * 0.4;
+          distGain.gain.value = mix.wet;
+          dry.gain.value = mix.dry;
         } else {
           distNode.curve = this._makeDistortionCurve(0);
           distGain.gain.value = 0.0;
@@ -602,7 +707,10 @@
         revGain.connect(master);
 
         const eqStd = this._buildEq(offline, s.eq);
-        master.connect(eqStd.input);
+        const postStd = this._buildPostFx(offline);
+        postStd.update(s, false);
+        master.connect(postStd.input);
+        postStd.output.connect(eqStd.input);
         eqStd.output.connect(offline.destination);
       }
 

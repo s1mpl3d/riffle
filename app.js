@@ -287,12 +287,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 200);
   }
 
+  const FX_KEYS = ['lowpass', 'highpass', 'bitcrush', 'tremolo', 'pan8d', 'chorus'];
+
   const defaultPresets = [
     { id: 'p_default', name: 'default', settings: { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0 } },
     { id: 'p_speedup', name: 'speed up (orig pitch)', settings: { speed: 1.35, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0 } },
                           { id: 'p_speedup_pitch', name: 'speed up (tape pitch)', settings: { speed: 1.0, speedPitch: 1.30, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0 } },
                           { id: 'p_slowed', name: 'slowed + reverb', settings: { speed: 1.0, speedPitch: 0.82, pitch: 0, reverb: 65, distortion: 0, volume: 1.0, echo: 15 } },
                           { id: 'p_nightcore', name: 'nightcore', settings: { speed: 1.0, speedPitch: 1.25, pitch: 0, reverb: 20, distortion: 0, volume: 1.0, echo: 0 } },
+                          { id: 'p_lofi', name: 'lo-fi', settings: { speed: 1.0, speedPitch: 0.95, pitch: 0, reverb: 20, distortion: 0, volume: 1.1, echo: 0, bitcrush: 45, lowpass: 35 } },
+                          { id: 'p_8d', name: '8D audio', settings: { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 25, distortion: 0, volume: 1.0, echo: 0, pan8d: 85 } },
+                          { id: 'p_phone', name: 'telephone', settings: { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 10, volume: 1.2, echo: 0, highpass: 70, lowpass: 45 } },
                           { id: 'p_distortion', name: 'distortion hard', settings: { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 75, volume: 1.25, echo: 0 } }
   ];
 
@@ -323,6 +328,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                           distortion: typeof s.distortion === 'number' ? s.distortion : 0,
                           volume: typeof s.volume === 'number' ? s.volume : (typeof s.gain === 'number' ? s.gain : 1.0),
                           echo: typeof s.echo === 'number' ? s.echo : 0,
+                          ...Object.fromEntries(FX_KEYS.map(k => [k, typeof s[k] === 'number' ? s[k] : 0])),
                           eq: {
                             low: s.eq && typeof s.eq.low === 'number' ? s.eq.low : 0,
                             mid: s.eq && typeof s.eq.mid === 'number' ? s.eq.mid : 0,
@@ -386,6 +392,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                           distortion: 0,
                           volume: 1.0,
                           echo: 0,
+                          ...Object.fromEntries(FX_KEYS.map(k => [k, 0])),
                           eq: { low: 0, mid: 0, high: 0 }
                           },
                           hqEnabled: false,
@@ -2297,6 +2304,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (el.sliderEcho) el.sliderEcho.value = s.echo;
     if (el.valEcho) el.valEcho.textContent = `${s.echo}%`;
+
+    FX_KEYS.forEach(k => {
+      const v = Math.round(s[k] || 0);
+      const slider = document.getElementById(`slider-fx-${k}`);
+      const label = document.getElementById(`val-fx-${k}`);
+      if (slider) slider.value = v;
+      if (label) label.textContent = `${v}%`;
+    });
 
     const eq = s.eq || { low: 0, mid: 0, high: 0 };
     ['low', 'mid', 'high'].forEach(band => {
@@ -4226,7 +4241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ctx.globalAlpha = 0.28;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      a.branches.forEach((list, i) => list.forEach(([j, d]) => { if (d <= thr && j > i) arc(ctx, i, j + 1); }));
+      a.branches.forEach((list, i) => list.forEach(([j, d]) => { if (d <= thr && j - i >= 16) arc(ctx, i, j + 1); }));
       ctx.stroke();
       if (a.exit) {
         ctx.globalAlpha = 0.6;
@@ -4322,7 +4337,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (u.pathname === '/api/saved-file') return { query: 'saved=' + encodeURIComponent(u.searchParams.get('name') || ''), url: src };
       if (u.pathname === '/api/library-file' || u.pathname === '/api/local-track') return { query: 'id=' + encodeURIComponent(u.searchParams.get('id') || ''), url: src };
     }
-    return { query: 'id=' + encodeURIComponent(track.id || ''), url: `${base}/api/local-track?id=${encodeURIComponent(track.id || '')}` };
+    const fetchFrom = track.url ? `&url=${encodeURIComponent(track.url)}&platform=${encodeURIComponent(track.platform || '')}` : '';
+    return { query: 'id=' + encodeURIComponent(track.id || '') + fetchFrom, url: `${base}/api/local-track?id=${encodeURIComponent(track.id || '')}` };
   }
 
   async function toggleJukebox() {
@@ -4336,12 +4352,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!track || jukeboxBusy) return;
     jukeboxBusy = true;
     if (btn) btn.classList.add('loading');
+    const timeout = new AbortController();
+    const timer = setTimeout(() => timeout.abort(), 5 * 60 * 1000);
     try {
       initAudioContext();
+      showToast(tr('Getting the jukebox ready...'));
       const source = jukeboxSource(track);
-      const res = await (await fetch(`http://127.0.0.1:${state.serverPort}/api/jukebox?${source.query}`)).json();
+      const res = await (await fetch(`http://127.0.0.1:${state.serverPort}/api/jukebox?${source.query}`, { signal: timeout.signal })).json();
       if (!res.success) {
-        showToast(res.error === 'not downloaded' ? tr('The song is still downloading. Try again in a moment') : tr('Could not analyze this song'), 'error');
+        showToast(res.error === 'not downloaded' ? tr('Could not get this song for the jukebox') : tr('Could not analyze this song'), 'error');
         return;
       }
       if (state.currentTrack !== track) return;
@@ -4355,6 +4374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {
       showToast(tr('Could not analyze this song'), 'error');
     } finally {
+      clearTimeout(timer);
       jukeboxBusy = false;
       if (btn) btn.classList.remove('loading');
     }
@@ -5738,6 +5758,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  document.querySelectorAll('[data-fx]').forEach(slider => {
+    const key = slider.dataset.fx;
+    const label = document.getElementById(`val-fx-${key}`);
+    slider.addEventListener('input', () => {
+      initAudioContext();
+      const val = parseInt(slider.value, 10);
+      state.audioSettings[key] = val;
+      if (label) label.textContent = `${val}%`;
+      state.activePresetId = null;
+      applyAudioSettings();
+      renderPresets();
+    });
+    slider.addEventListener('dblclick', () => {
+      slider.value = 0;
+      slider.dispatchEvent(new Event('input'));
+    });
+  });
+
   if (el.sliderGain) {
     el.sliderGain.addEventListener('input', (e) => {
       initAudioContext();
@@ -6049,7 +6087,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnResetAudio.addEventListener('click', () => {
       cancelAnimationFrame(presetGlide);
       state.activePresetId = 'p_default';
-      state.audioSettings = { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0, eq: { low: 0, mid: 0, high: 0 } };
+      state.audioSettings = { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0, ...Object.fromEntries(FX_KEYS.map(k => [k, 0])), eq: { low: 0, mid: 0, high: 0 } };
       // reset also turns HQ off and puts its sliders back
       state.hqEnabled = false;
       state.hqSettings = Object.assign({}, state.hqSettings, { preset: 'studio', vocal: 0, air: 0, bass: 0 });

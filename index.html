@@ -1574,8 +1574,8 @@
             <span class="setting-name">Distortion</span>
             <span class="setting-value" id="val-distortion">0%</span>
           </div>
-          <input type="range" class="pill-range" id="slider-distortion" min="0" max="100" step="1" value="0">
-          <div class="setting-hints"><span>0%</span><span>50%</span><span>100%</span></div>
+          <input type="range" class="pill-range" id="slider-distortion" min="0" max="300" step="1" value="0">
+          <div class="setting-hints"><span>0%</span><span>150%</span><span>300%</span></div>
         </div>
 
         <div class="setting-item">
@@ -1594,6 +1594,78 @@
           </div>
           <input type="range" class="pill-range" id="slider-echo" min="0" max="100" step="1" value="0">
           <div class="setting-hints"><span>0%</span><span>50%</span><span>100%</span></div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-item-top">
+            <div class="setting-label-stack">
+              <span class="setting-name">Muffled</span>
+              <span class="setting-desc">Cuts the highs, like music through a wall or under water</span>
+            </div>
+            <span class="setting-value" id="val-fx-lowpass">0%</span>
+          </div>
+          <input type="range" class="pill-range" data-fx="lowpass" id="slider-fx-lowpass" min="0" max="100" step="1" value="0">
+          <div class="setting-hints"><span>Off</span><span>50%</span><span>Under water</span></div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-item-top">
+            <div class="setting-label-stack">
+              <span class="setting-name">Thin</span>
+              <span class="setting-desc">Cuts the lows, like a phone speaker or an old radio</span>
+            </div>
+            <span class="setting-value" id="val-fx-highpass">0%</span>
+          </div>
+          <input type="range" class="pill-range" data-fx="highpass" id="slider-fx-highpass" min="0" max="100" step="1" value="0">
+          <div class="setting-hints"><span>Off</span><span>50%</span><span>Telephone</span></div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-item-top">
+            <div class="setting-label-stack">
+              <span class="setting-name">Lo-fi</span>
+              <span class="setting-desc">Fewer bits per sample for a crunchy, retro sound</span>
+            </div>
+            <span class="setting-value" id="val-fx-bitcrush">0%</span>
+          </div>
+          <input type="range" class="pill-range" data-fx="bitcrush" id="slider-fx-bitcrush" min="0" max="100" step="1" value="0">
+          <div class="setting-hints"><span>Off</span><span>50%</span><span>Crushed</span></div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-item-top">
+            <div class="setting-label-stack">
+              <span class="setting-name">Tremolo</span>
+              <span class="setting-desc">The volume pulses six times a second</span>
+            </div>
+            <span class="setting-value" id="val-fx-tremolo">0%</span>
+          </div>
+          <input type="range" class="pill-range" data-fx="tremolo" id="slider-fx-tremolo" min="0" max="100" step="1" value="0">
+          <div class="setting-hints"><span>Off</span><span>50%</span><span>Strong</span></div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-item-top">
+            <div class="setting-label-stack">
+              <span class="setting-name">8D audio</span>
+              <span class="setting-desc">The sound slowly circles between left and right. Best with headphones</span>
+            </div>
+            <span class="setting-value" id="val-fx-pan8d">0%</span>
+          </div>
+          <input type="range" class="pill-range" data-fx="pan8d" id="slider-fx-pan8d" min="0" max="100" step="1" value="0">
+          <div class="setting-hints"><span>Off</span><span>50%</span><span>Full</span></div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-item-top">
+            <div class="setting-label-stack">
+              <span class="setting-name">Chorus</span>
+              <span class="setting-desc">Doubles the sound with a slightly delayed copy for a wider, shimmering tone</span>
+            </div>
+            <span class="setting-value" id="val-fx-chorus">0%</span>
+          </div>
+          <input type="range" class="pill-range" data-fx="chorus" id="slider-fx-chorus" min="0" max="100" step="1" value="0">
+          <div class="setting-hints"><span>Off</span><span>50%</span><span>Strong</span></div>
         </div>
 
         <div class="setting-item eq-card">
