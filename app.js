@@ -7300,6 +7300,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // data and download folders
+  const storage = (() => {
+    const api = window.electronAPI;
+    if (!api || !api.storageInfo) return null;
+    const modal = document.getElementById('storage-move-modal');
+    let answer = null;
+
+    function askMove(title, hint) {
+      document.getElementById('storage-move-title').textContent = title;
+      document.getElementById('storage-move-hint').textContent = hint;
+      openModal(modal);
+      return new Promise(resolve => { answer = resolve; });
+    }
+    const settle = (value) => () => { closeModal(modal); if (answer) answer(value); answer = null; };
+    document.getElementById('btn-storage-move').addEventListener('click', settle('move'));
+    document.getElementById('btn-storage-switch').addEventListener('click', settle('switch'));
+    document.getElementById('btn-cancel-storage-move').addEventListener('click', settle(null));
+
+    const errorText = (e) => e === 'inside' ? tr('Choose a folder outside the current one')
+      : e === 'not writable' ? tr('Riffle cannot write to that folder') : tr('Could not change the folder');
+
+    async function refresh() {
+      const info = await api.storageInfo();
+      const dataPath = document.getElementById('data-folder-path');
+      const pending = info.pendingDataDir !== info.dataDir;
+      dataPath.textContent = pending ? tr('{path} (after restart)', { path: info.pendingDataDir }) : info.dataDir;
+      document.getElementById('btn-reset-data-folder').hidden = info.pendingDataDir === info.defaultDataDir;
+      document.getElementById('download-folder-path').textContent = info.downloadDir;
+      document.getElementById('btn-reset-download-folder').hidden = info.downloadDir === info.defaultDownloadDir;
+      return info;
+    }
+
+    async function changeData(toDefault) {
+      const info = await api.storageInfo();
+      const dir = toDefault ? null : await api.pickFolder(info.pendingDataDir);
+      if (!toDefault && !dir) return;
+      const choice = await askMove(tr('Move your data?'), tr('Riffle can copy the cache, lyrics, My files and the tools to the new folder. The old copy is removed on the next start.'));
+      if (!choice) return;
+      const r = await api.setDataDir({ dir, move: choice === 'move' });
+      await refresh();
+      if (!r.ok) return showToast(errorText(r.error), 'error');
+      if (r.restart) showToast(tr('Riffle uses the new folder after a restart'), 'info', { actions: [{ label: tr('Restart now'), primary: true, onClick: () => api.restartApp() }] });
+    }
+
+    async function changeDownloads(toDefault) {
+      const info = await api.storageInfo();
+      const dir = toDefault ? null : await api.pickFolder(info.downloadDir);
+      if (!toDefault && !dir) return;
+      const choice = await askMove(tr('Move your saved songs?'), tr('Riffle can move the songs you saved to the new folder, or leave them where they are.'));
+      if (!choice) return;
+      const r = await api.setDownloadDir({ dir, move: choice === 'move' });
+      await refresh();
+      if (!r.ok) return showToast(errorText(r.error), 'error');
+      showToast(r.moved ? trn(r.moved, '{n} song moved', '{n} songs moved') : tr('Download folder changed'));
+      loadSavedTracks();
+    }
+
+    document.getElementById('btn-change-data-folder').addEventListener('click', () => changeData(false));
+    document.getElementById('btn-reset-data-folder').addEventListener('click', () => changeData(true));
+    document.getElementById('btn-change-download-folder').addEventListener('click', () => changeDownloads(false));
+    document.getElementById('btn-reset-download-folder').addEventListener('click', () => changeDownloads(true));
+    refresh().catch(() => {});
+    return { refresh };
+  })();
+
   let toolsPollInterval = null;
 
   function updateToolsUI(data) {

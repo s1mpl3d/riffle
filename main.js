@@ -344,8 +344,26 @@ function runGUI() {
     }
   }
 
+  // after a move, the previous data folder is emptied on the next start (only Riffle's own entries)
+  function cleanupOldDataFolder() {
+    const platform = require('./platform');
+    const old = platform.configuredDir(platform.readConfig().cleanupDir);
+    if (!old) return;
+    const inside = (child, parent) => {
+      const rel = path.relative(parent, child);
+      return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+    };
+    if (!inside(platform.DATA_DIR, old) && !inside(old, platform.DATA_DIR)) {
+      for (const name of platform.DATA_ENTRIES) {
+        fs.promises.rm(path.join(old, name), { recursive: true, force: true }).catch(() => {});
+      }
+    }
+    platform.writeConfig({ cleanupDir: null });
+  }
+
   async function createWindow() {
     serverPort = await startServer(PORT);
+    cleanupOldDataFolder();
     const initialBounds = getResponsiveWindowBounds();
     const savedState = readWindowState();
 
@@ -465,6 +483,93 @@ function runGUI() {
         const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: MEDIA_FILTERS[kind] || MEDIA_FILTERS.media });
         if (result.canceled || !result.filePaths[0]) return null;
         return { url: pathToFileURL(result.filePaths[0]).href, name: path.basename(result.filePaths[0]) };
+      });
+
+      // storage: the data folder switches on the next start, the download folder right away
+      const isInside = (child, parent) => {
+        const rel = path.relative(parent, child);
+        return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+      };
+
+      async function copyTree(from, to) {
+        await fs.promises.mkdir(to, { recursive: true });
+        for (const entry of await fs.promises.readdir(from, { withFileTypes: true })) {
+          const a = path.join(from, entry.name), b = path.join(to, entry.name);
+          if (entry.isDirectory()) await copyTree(a, b);
+          else if (entry.isFile()) await fs.promises.copyFile(a, b);
+        }
+      }
+
+      async function copyDataFolder(from, to) {
+        const { DATA_ENTRIES } = require('./platform');
+        await fs.promises.mkdir(to, { recursive: true });
+        for (const name of DATA_ENTRIES) {
+          const a = path.join(from, name);
+          let st;
+          try { st = await fs.promises.stat(a); } catch (e) { continue; }
+          if (st.isDirectory()) await copyTree(a, path.join(to, name));
+          else await fs.promises.copyFile(a, path.join(to, name));
+        }
+      }
+
+      ipcMain.handle('storage-info', () => {
+        const platform = require('./platform');
+        const dl = require('./server').getDownloadsDir();
+        return {
+          dataDir: platform.DATA_DIR,
+          defaultDataDir: platform.DEFAULT_DATA_DIR,
+          pendingDataDir: platform.configuredDir(platform.readConfig().dataDir) || platform.DEFAULT_DATA_DIR,
+          downloadDir: dl.dir,
+          defaultDownloadDir: dl.defaultDir
+        };
+      });
+
+      ipcMain.handle('pick-folder', async (event, current) => {
+        const r = await dialog.showOpenDialog(mainWindow, {
+          defaultPath: typeof current === 'string' ? current : undefined,
+          properties: ['openDirectory', 'createDirectory']
+        });
+        return r.canceled ? null : r.filePaths[0];
+      });
+
+      ipcMain.handle('set-data-dir', async (event, payload) => {
+        const platform = require('./platform');
+        const current = path.resolve(platform.DATA_DIR);
+        const target = payload && payload.dir ? path.resolve(String(payload.dir)) : platform.DEFAULT_DATA_DIR;
+        if (target === current) {
+          platform.writeConfig({ dataDir: payload && payload.dir ? target : null, cleanupDir: null });
+          return { ok: true, dir: target };
+        }
+        if (isInside(target, current) || isInside(current, target)) return { ok: false, error: 'inside' };
+        try {
+          fs.mkdirSync(target, { recursive: true });
+          fs.accessSync(target, fs.constants.W_OK);
+        } catch (e) {
+          return { ok: false, error: 'not writable' };
+        }
+        if (payload && payload.move) {
+          try { await copyDataFolder(current, target); } catch (e) { return { ok: false, error: e.message }; }
+        }
+        platform.writeConfig({
+          dataDir: target === platform.DEFAULT_DATA_DIR ? null : target,
+          // the running app still reads the old files, so they go on the next start
+          cleanupDir: payload && payload.move ? current : null
+        });
+        return { ok: true, dir: target, restart: true };
+      });
+
+      ipcMain.handle('set-download-dir', async (event, payload) => {
+        try {
+          return await require('./server').setDownloadsDir(payload && payload.dir ? String(payload.dir) : null, !!(payload && payload.move));
+        } catch (e) {
+          return { ok: false, error: e.code === 'EACCES' || e.code === 'EPERM' ? 'not writable' : e.message };
+        }
+      });
+
+      ipcMain.on('restart-app', () => {
+        isQuitting = true;
+        app.relaunch();
+        app.exit(0);
       });
 
       // My files: copies picked or dropped audio into the library folder; the server reads tags later

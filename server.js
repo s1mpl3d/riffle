@@ -1611,13 +1611,46 @@ async function handleAudioProxy(req, res, targetUrl) {
 }
 
 // downloads go to the app's own folder (Music\Riffle), listed in the Saved view
-let DOWNLOADS_DIR;
-try { DOWNLOADS_DIR = path.join(require('electron').app.getPath('music'), 'Riffle'); } catch (e) { DOWNLOADS_DIR = path.join(os.homedir(), 'Music', 'Riffle'); }
+let DEFAULT_DOWNLOADS_DIR;
+try { DEFAULT_DOWNLOADS_DIR = path.join(require('electron').app.getPath('music'), 'Riffle'); } catch (e) { DEFAULT_DOWNLOADS_DIR = path.join(os.homedir(), 'Music', 'Riffle'); }
+let DOWNLOADS_DIR = require('./platform').configuredDir(require('./platform').readConfig().downloadDir) || DEFAULT_DOWNLOADS_DIR;
 if (!fs.existsSync(DOWNLOADS_DIR)) {
   try { fs.mkdirSync(DOWNLOADS_DIR, { recursive: true }); } catch (e) {}
 }
 
-const SAVED_INDEX_PATH = path.join(DOWNLOADS_DIR, '.riffle-saved.json');
+const SAVED_INDEX_NAME = '.riffle-saved.json';
+const savedIndexPath = () => path.join(DOWNLOADS_DIR, SAVED_INDEX_NAME);
+
+// switches the Saved folder right away; with move, the saved songs and their index go along
+async function setDownloadsDir(dir, move) {
+  const target = dir ? path.resolve(dir) : DEFAULT_DOWNLOADS_DIR;
+  const current = DOWNLOADS_DIR;
+  if (path.relative(current, target) === '') return { ok: true, dir: target };
+  await fs.promises.mkdir(target, { recursive: true });
+  await fs.promises.access(target, fs.constants.W_OK);
+  let moved = 0;
+  if (move) {
+    const index = readSavedIndex();
+    const files = (await fs.promises.readdir(current).catch(() => [])).filter(n => SAVED_AUDIO_RE.test(n));
+    for (const name of files) {
+      const from = path.join(current, name);
+      const to = path.join(target, name);
+      try {
+        await fs.promises.rename(from, to);
+      } catch (e) {
+        await fs.promises.copyFile(from, to);
+        await fs.promises.unlink(from).catch(() => {});
+      }
+      moved++;
+    }
+    const merged = Object.assign(safeJsonParse(await fs.promises.readFile(path.join(target, SAVED_INDEX_NAME), 'utf-8').catch(() => ''), {}) || {}, index);
+    await fs.promises.writeFile(path.join(target, SAVED_INDEX_NAME), JSON.stringify(merged, null, 2), 'utf-8');
+    await fs.promises.unlink(path.join(current, SAVED_INDEX_NAME)).catch(() => {});
+  }
+  DOWNLOADS_DIR = target;
+  require('./platform').writeConfig({ downloadDir: dir ? target : null });
+  return { ok: true, dir: target, moved };
+}
 const DOWNLOAD_TIMEOUT_MS = 15 * 60 * 1000;
 const SAVED_AUDIO_RE = /\.(mp3|m4a|flac|opus|wav|ogg|webm)$/i;
 const AUDIO_MIME = {
@@ -1631,11 +1664,11 @@ const AUDIO_MIME = {
 };
 
 function readSavedIndex() {
-  try { return JSON.parse(fs.readFileSync(SAVED_INDEX_PATH, 'utf-8')) || {}; } catch (e) { return {}; }
+  try { return JSON.parse(fs.readFileSync(savedIndexPath(), 'utf-8')) || {}; } catch (e) { return {}; }
 }
 
 function writeSavedIndex(index) {
-  try { fs.writeFileSync(SAVED_INDEX_PATH, JSON.stringify(index, null, 2), 'utf-8'); } catch (e) {}
+  try { fs.writeFileSync(savedIndexPath(), JSON.stringify(index, null, 2), 'utf-8'); } catch (e) {}
 }
 
 // only plain file names inside DOWNLOADS_DIR, never a path out of it
@@ -2618,7 +2651,10 @@ function startServer(port = PORT) {
   });
 }
 
-module.exports = { startServer, PORT, getServerToken: () => SERVER_TOKEN };
+module.exports = {
+  startServer, PORT, getServerToken: () => SERVER_TOKEN,
+  setDownloadsDir, getDownloadsDir: () => ({ dir: DOWNLOADS_DIR, defaultDir: DEFAULT_DOWNLOADS_DIR })
+};
 
 if (require.main === module) {
   startServer();

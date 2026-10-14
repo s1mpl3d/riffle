@@ -1010,6 +1010,34 @@
             <span class="settings-section-title">Storage</span>
             <div class="settings-group">
 
+            <div class="setting-item" id="data-folder-item">
+              <div class="setting-item-top" style="align-items: center; justify-content: space-between; gap: 12px;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Data folder</span>
+                  <span class="setting-desc">Cache, lyrics, My files and the tools. A change applies after Riffle restarts</span>
+                  <span class="setting-path" id="data-folder-path"></span>
+                </div>
+                <div class="setting-actions">
+                  <button class="btn-outline-pill btn-small" id="btn-reset-data-folder" type="button" hidden>Default</button>
+                  <button class="btn-outline-pill btn-small" id="btn-change-data-folder" type="button">Change</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item" id="download-folder-item">
+              <div class="setting-item-top" style="align-items: center; justify-content: space-between; gap: 12px;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Download folder</span>
+                  <span class="setting-desc">Saved songs go here, and every song in it shows up under Saved songs</span>
+                  <span class="setting-path" id="download-folder-path"></span>
+                </div>
+                <div class="setting-actions">
+                  <button class="btn-outline-pill btn-small" id="btn-reset-download-folder" type="button" hidden>Default</button>
+                  <button class="btn-outline-pill btn-small" id="btn-change-download-folder" type="button">Change</button>
+                </div>
+              </div>
+            </div>
+
             <div class="setting-item clickable clear-cache-row" id="btn-open-clear-cache">
               <div class="setting-item-top" style="cursor: pointer; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -1876,6 +1904,18 @@
       <div class="dialog-actions">
         <button class="btn-outline-pill" id="btn-cancel-delete-playlist">Cancel</button>
         <button class="btn-pill-primary" id="btn-confirm-delete-playlist">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="storage-move-modal">
+    <div class="dialog-card">
+      <h3 id="storage-move-title">Move your files?</h3>
+      <p class="dialog-hint" id="storage-move-hint">Riffle can bring what is in the current folder along, or start the new folder empty.</p>
+      <div class="dialog-actions">
+        <button class="btn-outline-pill" id="btn-cancel-storage-move" type="button">Cancel</button>
+        <button class="btn-outline-pill" id="btn-storage-switch" type="button">Start empty</button>
+        <button class="btn-pill-primary" id="btn-storage-move" type="button">Move files</button>
       </div>
     </div>
   </div>

@@ -4,9 +4,38 @@ const path = require('path');
 
 const IS_WIN = process.platform === 'win32';
 
-const DATA_DIR = IS_WIN
+const DEFAULT_DATA_DIR = IS_WIN
   ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Riffle')
   : path.join(os.homedir(), '.cache', 'riffle');
+
+// where the user moved the data and download folders; always kept in the default folder
+const CONFIG_PATH = path.join(DEFAULT_DATA_DIR, 'config.json');
+
+function readConfig() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    return cfg && typeof cfg === 'object' ? cfg : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeConfig(patch) {
+  const cfg = Object.assign(readConfig(), patch);
+  for (const k of Object.keys(cfg)) if (cfg[k] == null) delete cfg[k];
+  fs.mkdirSync(DEFAULT_DATA_DIR, { recursive: true });
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
+  return cfg;
+}
+
+function configuredDir(value) {
+  return typeof value === 'string' && value.trim() ? path.resolve(value.trim()) : null;
+}
+
+// everything Riffle keeps in the data folder; moving or cleaning up never touches anything else there
+const DATA_ENTRIES = ['tracks', 'custom-lyrics', 'lyrics', 'thumbnails', 'library', 'jukebox', 'bin', 'metadata.json', 'library.json', 'spotify.json'];
+
+const DATA_DIR = configuredDir(process.env.RIFFLE_DATA_DIR) || configuredDir(readConfig().dataDir) || DEFAULT_DATA_DIR;
 
 const CACHE_DIR = path.join(DATA_DIR, 'tracks');
 const CUSTOM_LYRICS_DIR = path.join(DATA_DIR, 'custom-lyrics');
@@ -77,7 +106,7 @@ function clearBinaryCache() {
 
 module.exports = {
   clearBinaryCache,
-  IS_WIN, DATA_DIR, BIN_DIR, CACHE_DIR, CUSTOM_LYRICS_DIR, LYRICS_DIR, THUMBNAILS_DIR, METADATA_PATH,
-  LIBRARY_DIR, LIBRARY_PATH,
+  IS_WIN, DATA_DIR, DEFAULT_DATA_DIR, BIN_DIR, CACHE_DIR, CUSTOM_LYRICS_DIR, LYRICS_DIR, THUMBNAILS_DIR, METADATA_PATH,
+  LIBRARY_DIR, LIBRARY_PATH, readConfig, writeConfig, configuredDir, DATA_ENTRIES,
   findInPath, resolveBinary, ytDlpCommand
 };

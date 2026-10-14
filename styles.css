@@ -5493,3 +5493,14 @@ html.flat-ui #ui-shadows, body.perf #ui-shadows, body.tv-open #ui-shadows { disp
 .jukebox-stats { text-align: center; white-space: nowrap; font-size: calc(11.5px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface-variant); font-variant-numeric: tabular-nums; }
 #btn-jukebox-off { width: 28px; height: 28px; margin-left: auto; }
 #jukebox-canvas { width: 232px; height: 232px; align-self: center; }
+
+.setting-path {
+  font-size: calc(11.5px * var(--font-scale, 1));
+  color: var(--md-sys-color-on-surface-variant);
+  font-family: ui-monospace, Consolas, monospace;
+  overflow-wrap: anywhere;
+  opacity: 0.85;
+}
+.setting-path:empty { display: none; }
+.setting-actions { display: flex; gap: 8px; flex: none; }
+.setting-actions [hidden] { display: none; }
