@@ -5528,3 +5528,28 @@ html.flat-ui #ui-shadows, body.perf #ui-shadows, body.tv-open #ui-shadows { disp
 }
 body.perf .dq-row.is-converting .dq-bar > div, body.perf .nav-item.is-downloading .nav-indicator::after { animation: none; }
 .playlist-download-card { width: 520px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: 12px; }
+
+.import-alt-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.import-alt-row [hidden] { display: none; }
+.import-collections { display: flex; flex-direction: column; gap: 8px; }
+.import-collections[hidden], #import-target-row[hidden] { display: none; }
+.import-collections-head { display: flex; align-items: center; justify-content: space-between; }
+.import-collections-list { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; padding: 4px; border-radius: 14px; background: var(--md-sys-color-surface-container); }
+.import-collection { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: calc(13px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface); }
+.import-collection:hover { background: var(--md-sys-color-surface-container-high); }
+.import-collection input { accent-color: var(--md-sys-color-primary); width: 16px; height: 16px; }
+.import-collection .ic-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-collection .ic-count { color: var(--md-sys-color-on-surface-variant); font-variant-numeric: tabular-nums; }
+
+.btn-text-pill {
+  border: none;
+  background: transparent;
+  color: var(--md-sys-color-primary);
+  font: inherit;
+  font-size: calc(12.5px * var(--font-scale, 1));
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--md-shape-corner-full);
+  cursor: pointer;
+}
+.btn-text-pill:hover { background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent); }

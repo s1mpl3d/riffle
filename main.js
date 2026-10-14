@@ -407,7 +407,7 @@ function runGUI() {
     mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-      shell.openExternal(url);
+      if (/^https?:\/\//i.test(url)) shell.openExternal(url);
       return { action: 'deny' };
     });
 

@@ -1487,6 +1487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (drawerTitle) drawerTitle.textContent = isPresets ? tr('Presets') : tr('Playlists');
         if (el.btnSavePresetDialog) el.btnSavePresetDialog.style.display = isPresets ? 'inline-flex' : 'none';
         if (el.btnNewPlaylist) el.btnNewPlaylist.style.display = isPresets ? 'none' : 'inline-flex';
+        { const imp = document.getElementById('btn-drawer-import'); if (imp) imp.style.display = isPresets ? 'none' : 'inline-flex'; }
         if (sidebarEl) sidebarEl.classList.add('has-drawer-open');
         LiquidMotion.open(railDrawer, trigger, 'x');
       } else if (activeDrawerMode !== openDrawerState) {
@@ -1504,6 +1505,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           railDrawer.classList.toggle('drawer-presets-mode', isPresets);
           if (el.btnSavePresetDialog) el.btnSavePresetDialog.style.display = isPresets ? 'inline-flex' : 'none';
           if (el.btnNewPlaylist) el.btnNewPlaylist.style.display = isPresets ? 'none' : 'inline-flex';
+          { const imp = document.getElementById('btn-drawer-import'); if (imp) imp.style.display = isPresets ? 'none' : 'inline-flex'; }
           if (incoming) {
             incoming.style.display = 'flex';
             incoming.classList.add('section-switching-in');
@@ -3588,7 +3590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function saveCustomPreset(name) {
     if (!name || !name.trim()) return;
     const newPreset = {
-      id: 'custom_' + Date.now(),
+      id: 'custom_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
                           name: name.trim(),
                           settings: { ...state.audioSettings }
     };
@@ -4867,7 +4869,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function createPlaylist(name, tracks = []) {
     if (!name || !name.trim()) return;
-    const newPl = { id: 'pl_' + Date.now(), name: name.trim(), tracks: Array.isArray(tracks) ? tracks : [] };
+    const newPl = { id: 'pl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), name: name.trim(), tracks: Array.isArray(tracks) ? tracks : [] };
     state.playlists.push(newPl);
     localStorage.setItem('devsize_playlists', JSON.stringify(state.playlists));
     renderPlaylistsList();
@@ -7883,19 +7885,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   loadLocalLibrary();
 
-  // ---- Spotify import: a public playlist or album becomes a Riffle playlist --------------------
+  // ---- playlist import: a link, an exported file or the Spotify library -------------------------
 
-  const spotifyImport = { target: 'new', busy: false, dropdown: null };
+  const spotifyImport = { target: 'new', busy: false, dropdown: null, mode: 'link', collections: [] };
   const spotifyModal = document.getElementById('spotify-import-modal');
   const spotifyUrl = document.getElementById('spotify-import-url');
   const spotifyStatus = document.getElementById('spotify-import-status');
   const btnConfirmSpotify = document.getElementById('btn-confirm-spotify-import');
+  const importBox = document.getElementById('import-collections');
+  const importList = document.getElementById('import-collections-list');
+  const importTargetRow = document.getElementById('import-target-row');
+  const apiBase = () => `http://127.0.0.1:${state.serverPort}/api/`;
 
   function setSpotifyStatus(text, isError) {
     if (!spotifyStatus) return;
     spotifyStatus.hidden = !text;
     spotifyStatus.textContent = text || '';
     spotifyStatus.classList.toggle('error', Boolean(isError));
+  }
+  function setImportButton(label, disabled) {
+    if (!btnConfirmSpotify) return;
+    btnConfirmSpotify.textContent = label;
+    btnConfirmSpotify.disabled = Boolean(disabled);
+  }
+  function setImportMode(mode) {
+    spotifyImport.mode = mode;
+    if (importBox) importBox.hidden = mode !== 'collections';
+    if (importTargetRow) importTargetRow.hidden = mode === 'collections';
+    setImportButton(mode === 'collections' ? tr('Import selected') : tr('Import'), false);
   }
   function openSpotifyImport() {
     if (!spotifyModal) return;
@@ -7906,46 +7923,221 @@ document.addEventListener('DOMContentLoaded', async () => {
     else spotifyImport.dropdown = bindDropdown('spotify-import-target', targets, 'new', (value) => { spotifyImport.target = value; });
     if (spotifyUrl) spotifyUrl.value = '';
     setSpotifyStatus('');
-    if (btnConfirmSpotify) { btnConfirmSpotify.disabled = false; btnConfirmSpotify.textContent = tr('Import'); }
+    setImportMode('link');
     openModal(spotifyModal);
     setTimeout(() => spotifyUrl && spotifyUrl.focus(), 60);
   }
-  async function runSpotifyImport() {
-    if (spotifyImport.busy) return;
+
+  const SOURCE_NAMES = { spotify: 'Spotify', apple: 'Apple Music', youtube: 'YouTube', ytmusic: 'YouTube Music', soundcloud: 'SoundCloud' };
+
+  function addToTarget(name, tracks) {
+    if (spotifyImport.target === 'new') return createPlaylist(name, tracks);
+    const pl = state.playlists.find(p => p.id === spotifyImport.target);
+    if (!pl) return;
+    const have = new Set(pl.tracks.map(t => getTrackCanonicalId(t)));
+    tracks.forEach(t => { if (!have.has(getTrackCanonicalId(t))) pl.tracks.push(t); });
+    localStorage.setItem('devsize_playlists', JSON.stringify(state.playlists));
+    renderPlaylistsList();
+    openPlaylistDetail(pl.id);
+  }
+
+  async function importLink() {
     const link = spotifyUrl ? spotifyUrl.value.trim() : '';
-    if (!/open\.spotify\.com\//i.test(link)) {
-      setSpotifyStatus(tr('That is not a Spotify link'), true);
-      return;
-    }
-    spotifyImport.busy = true;
-    if (btnConfirmSpotify) { btnConfirmSpotify.disabled = true; btnConfirmSpotify.textContent = tr('Reading...'); }
+    if (!/^https?:\/\//i.test(link)) return setSpotifyStatus(tr('Paste a link that starts with https://'), true);
+    setImportButton(tr('Reading...'), true);
     setSpotifyStatus('');
     try {
-      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/spotify-import?url=${encodeURIComponent(link)}`);
-      const data = await res.json();
-      if (!data.success || !data.tracks || !data.tracks.length) throw new Error(data.error || 'empty');
-      if (spotifyImport.target === 'new') {
-        createPlaylist(data.name || tr('Spotify playlist'), data.tracks);
-      } else {
-        const pl = state.playlists.find(p => p.id === spotifyImport.target);
-        if (pl) {
-          const have = new Set(pl.tracks.map(t => getTrackCanonicalId(t)));
-          data.tracks.forEach(t => { if (!have.has(getTrackCanonicalId(t))) pl.tracks.push(t); });
-          localStorage.setItem('devsize_playlists', JSON.stringify(state.playlists));
-          renderPlaylistsList();
-          openPlaylistDetail(pl.id);
-        }
-      }
+      const data = await (await fetch(`${apiBase()}playlist-import?url=${encodeURIComponent(link)}`)).json();
+      if (!data.success) throw new Error(data.error || 'empty');
+      addToTarget(data.name || tr('Imported playlist'), data.tracks);
       closeModal(spotifyModal);
-      showToast(trn(data.tracks.length, '{n} song imported from Spotify', '{n} songs imported from Spotify'));
+      showToast(tr('{n} songs imported from {source}', { n: data.tracks.length, source: SOURCE_NAMES[data.source] || tr('the link') }));
     } catch (e) {
-      setSpotifyStatus(tr('Could not read that link. Make sure the playlist is public'), true);
+      setSpotifyStatus(e.message === 'unsupported link' ? tr('Riffle cannot import from that site yet') : tr('Could not read that link. Make sure the playlist is public'), true);
     }
-    spotifyImport.busy = false;
-    if (btnConfirmSpotify) { btnConfirmSpotify.disabled = false; btnConfirmSpotify.textContent = tr('Import'); }
+    setImportButton(tr('Import'), false);
+  }
+
+  function renderCollections(label) {
+    document.getElementById('import-collections-label').textContent = label;
+    importList.textContent = '';
+    spotifyImport.collections.forEach((c, i) => {
+      const row = document.createElement('label');
+      row.className = 'import-collection';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = true;
+      box.dataset.index = i;
+      const name = document.createElement('span');
+      name.className = 'ic-name';
+      name.textContent = c.name;
+      const count = document.createElement('span');
+      count.className = 'ic-count';
+      count.textContent = String(c.count);
+      row.append(box, name, count);
+      importList.appendChild(row);
+    });
+    setImportMode('collections');
+  }
+
+  async function importCollections() {
+    const picked = [...importList.querySelectorAll('input:checked')].map(b => spotifyImport.collections[b.dataset.index]);
+    if (!picked.length) return setSpotifyStatus(tr('Pick at least one'), true);
+    setImportButton(tr('Importing...'), true);
+    let songs = 0, lists = 0;
+    for (const c of picked) {
+      setSpotifyStatus(tr('Importing {name}...', { name: c.name }));
+      let tracks = c.tracks;
+      if (!tracks && c.spotifyId) {
+        const r = await (await fetch(`${apiBase()}spotify-collection?id=${encodeURIComponent(c.spotifyId)}`)).json().catch(() => ({}));
+        tracks = r.success ? r.tracks : null;
+      }
+      if (tracks && tracks.length) {
+        createPlaylist(c.name, tracks);
+        songs += tracks.length;
+        lists++;
+      }
+    }
+    closeModal(spotifyModal);
+    showToast(tr('{n} songs imported into {lists} playlists', { n: songs, lists }));
+  }
+
+  // exported files: Spotify's account data (YourLibrary.json, PlaylistN.json), Apple Music's export,
+  // or any CSV with title and artist columns
+  function fileTrack(title, artist) {
+    title = String(title || '').trim();
+    artist = String(artist || '').trim() || 'unknown artist';
+    if (!title) return null;
+    return { id: `import-${title}-${artist}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80), title, artist, duration: 0, thumbnail: '', url: '', platform: 'youtube', searchQuery: `${artist.split(',')[0]} ${title} audio`, isCached: false };
+  }
+
+  function parseCsv(text) {
+    const rows = [];
+    let row = [], cell = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (ch === '"') quoted = false;
+        else cell += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === ',' || ch === ';' || ch === '\t') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); rows.push(row); row = []; cell = '';
+      } else cell += ch;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => c.trim()));
+  }
+
+  function collectionsFromFile(name, text) {
+    const base = name.replace(/\.(json|csv)$/i, '');
+    const groups = new Map();
+    const add = (group, t) => { if (!t) return; if (!groups.has(group)) groups.set(group, []); groups.get(group).push(t); };
+    if (/\.csv$/i.test(name)) {
+      const rows = parseCsv(text);
+      if (rows.length < 2) return [];
+      const head = rows[0].map(h => h.trim().toLowerCase());
+      const col = (...names) => head.findIndex(h => names.includes(h));
+      const ti = col('title', 'name', 'song', 'track', 'track name', 'song name', 'song title');
+      const ai = col('artist', 'artists', 'artist name', 'artist name(s)', 'album artist');
+      const pi = col('playlist', 'playlist name', 'container name');
+      if (ti < 0) return [];
+      rows.slice(1).forEach(r => add(pi >= 0 && r[pi] ? r[pi] : base, fileTrack(r[ti], ai >= 0 ? r[ai] : '')));
+    } else {
+      let data;
+      try { data = JSON.parse(text); } catch (e) { return []; }
+      if (data && Array.isArray(data.playlists)) {
+        data.playlists.forEach(p => (p.items || []).forEach(it => { const t = it.track || it; add(p.name || base, fileTrack(t.trackName || t.track || t.title, t.artistName || t.artist)); }));
+      } else if (data && Array.isArray(data.tracks) && /library/i.test(base)) {
+        data.tracks.forEach(t => add(tr('Liked songs'), fileTrack(t.track || t.trackName || t.title, t.artist || t.artistName)));
+      } else {
+        const walk = (node, group) => {
+          if (!node || typeof node !== 'object') return;
+          if (Array.isArray(node)) return node.forEach(n => walk(n, group));
+          const g = node['Playlist Name'] || node.playlistName || node.playlist || group;
+          const title = node.Title || node['Song Name'] || node.trackName || node.title || node.name;
+          const artist = node.Artist || node['Artist Name'] || node.artistName || node.artist;
+          if (typeof title === 'string' && (typeof artist === 'string')) return add(g, fileTrack(title, artist));
+          Object.values(node).forEach(v => walk(v, g));
+        };
+        walk(data, base);
+      }
+    }
+    return [...groups].map(([n, tracks]) => {
+      const seen = new Set();
+      const unique = tracks.filter(t => !seen.has(t.id) && seen.add(t.id));
+      return { name: n, count: unique.length, tracks: unique };
+    });
+  }
+
+  const fileInput = document.getElementById('import-file-input');
+  document.getElementById('btn-import-file').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const files = [...fileInput.files];
+    fileInput.value = '';
+    if (!files.length) return;
+    const found = [];
+    for (const f of files) {
+      if (f.size > 50 * 1024 * 1024) continue;
+      found.push(...collectionsFromFile(f.name, await f.text()));
+    }
+    if (!found.length) return setSpotifyStatus(tr('No songs found in that file'), true);
+    setSpotifyStatus('');
+    spotifyImport.collections = found;
+    renderCollections(tr('Found in your files'));
+  });
+
+  async function spotifyLibrary() {
+    setSpotifyStatus(tr('Checking your Spotify account...'));
+    let st = await (await fetch(`${apiBase()}spotify-status`)).json().catch(() => ({}));
+    if (!st.connected) {
+      if (!st.hasClientId) {
+        return setSpotifyStatus(tr('Add your Spotify Client ID under Settings > Integrations, and add {uri} as a Redirect URI in your Spotify app.', { uri: st.redirectUri || '' }), true);
+      }
+      const start = await (await fetch(`${apiBase()}spotify-auth-start`)).json().catch(() => ({}));
+      if (!start.success) return setSpotifyStatus(tr('Could not start the Spotify login'), true);
+      window.open(start.url, '_blank');
+      setSpotifyStatus(tr('Log in to Spotify in your browser. The redirect URI must be {uri}', { uri: start.redirectUri }));
+      for (let i = 0; i < 90 && !st.connected; i++) {
+        if (spotifyModal.classList.contains('hidden')) return;
+        await new Promise(r => setTimeout(r, 2000));
+        st = await (await fetch(`${apiBase()}spotify-status`)).json().catch(() => ({}));
+      }
+      if (!st.connected) return setSpotifyStatus(tr('The Spotify login did not finish'), true);
+    }
+    setSpotifyStatus(tr('Reading the library of {name}...', { name: st.name || 'Spotify' }));
+    const lib = await (await fetch(`${apiBase()}spotify-library`)).json().catch(() => ({}));
+    if (!lib.success) return setSpotifyStatus(tr('Could not read your Spotify library'), true);
+    setSpotifyStatus('');
+    spotifyImport.collections = [{ name: tr('Liked songs'), count: lib.likes, spotifyId: 'likes' }]
+      .concat(lib.playlists.map(p => ({ name: p.name, count: p.count, spotifyId: p.id })))
+      .filter(c => c.count > 0);
+    renderCollections(tr('Your Spotify library'));
+  }
+  document.getElementById('btn-import-spotify-library').addEventListener('click', () => spotifyLibrary().catch(() => setSpotifyStatus(tr('Could not read your Spotify library'), true)));
+  document.getElementById('btn-import-select-all').addEventListener('click', () => {
+    const boxes = [...importList.querySelectorAll('input')];
+    const all = boxes.every(b => b.checked);
+    boxes.forEach(b => { b.checked = !all; });
+  });
+
+  async function runSpotifyImport() {
+    if (spotifyImport.busy) return;
+    spotifyImport.busy = true;
+    try {
+      if (spotifyImport.mode === 'collections') await importCollections();
+      else await importLink();
+    } finally {
+      spotifyImport.busy = false;
+      if (spotifyImport.mode === 'collections') setImportButton(tr('Import selected'), false);
+    }
   }
   const btnOpenSpotifyImport = document.getElementById('btn-open-spotify-import');
   if (btnOpenSpotifyImport) btnOpenSpotifyImport.addEventListener('click', openSpotifyImport);
+  const btnDrawerImport = document.getElementById('btn-drawer-import');
+  if (btnDrawerImport) btnDrawerImport.addEventListener('click', openSpotifyImport);
   if (btnConfirmSpotify) btnConfirmSpotify.addEventListener('click', runSpotifyImport);
   ['btn-cancel-spotify-import', 'btn-close-spotify-import'].forEach(id => {
     const btn = document.getElementById(id);

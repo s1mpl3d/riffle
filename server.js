@@ -14,7 +14,7 @@ const net = require('net');
 // in a browser can't drive the local server. Media the page loads as <audio>/<img> can't
 // carry headers, so those read-only routes are left open.
 const SERVER_TOKEN = crypto.randomBytes(24).toString('hex');
-const OPEN_ROUTES = new Set(['/api/local-track', '/api/library-file', '/api/saved-file', '/api/audio-proxy', '/api/local-thumbnail', '/api/lyrics-stream']);
+const OPEN_ROUTES = new Set(['/api/local-track', '/api/library-file', '/api/saved-file', '/api/audio-proxy', '/api/local-thumbnail', '/api/lyrics-stream', '/api/spotify-callback']);
 
 function tokenMatches(provided) {
   if (typeof provided !== 'string' || provided.length !== SERVER_TOKEN.length) return false;
@@ -825,7 +825,8 @@ async function readSpotifyEmbed(link) {
   }, 12000);
   const nd = html.match(/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/s);
   if (!nd) throw new Error('could not read spotify page');
-  const entity = JSON.parse(nd[1])?.props?.pageProps?.state?.data?.entity;
+  const pageState = JSON.parse(nd[1])?.props?.pageProps?.state;
+  const entity = pageState?.data?.entity;
   if (!entity) throw new Error('spotify entity not found');
 
   const cover = pickImage(entity.visualIdentity?.image) || pickImage(entity.coverArt?.sources);
@@ -840,7 +841,137 @@ async function readSpotifyEmbed(link) {
     duration: Math.round((Number(t.duration) || 0) / 1000),
     thumbnail: cover
   }));
+  // the embed stops at 100 songs; the rest comes from the page's own anonymous session
+  const token = pageState?.settings?.session?.accessToken;
+  if (entity.type === 'playlist' && tracks.length >= 100 && token) {
+    const full = await spotifyPlaylistPages(id, token).catch(() => null);
+    if (full && full.length > tracks.length) return { name: entity.name || entity.title || '', type: entity.type, tracks: full };
+  }
   return { name: entity.name || entity.title || '', type: entity.type || type, tracks };
+}
+
+const SPOTIFY_PLAYLIST_QUERY = '8964e8eafb21aa992a7d951d256d83285c04be2105d209262901de70cb97584a';
+
+function spotifyPathfinder(token, variables) {
+  return new Promise((resolve, reject) => {
+    const req = https.request('https://api-partner.spotify.com/pathfinder/v1/query', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' }
+    }, (res) => {
+      let body = '';
+      res.on('data', c => { body += c; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) return reject(new Error(`pathfinder ${res.statusCode}`));
+        try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
+      });
+    });
+    req.setTimeout(15000, () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+    req.end(JSON.stringify({ variables, operationName: 'fetchPlaylist', extensions: { persistedQuery: { version: 1, sha256Hash: SPOTIFY_PLAYLIST_QUERY } } }));
+  });
+}
+
+async function spotifyPlaylistPages(id, token) {
+  const out = [];
+  let total = Infinity;
+  for (let offset = 0; offset < total && offset < 10000; offset += 100) {
+    const page = await spotifyPathfinder(token, { uri: `spotify:playlist:${id}`, offset, limit: 100, enableWatchFeedEntrypoint: true });
+    const content = page?.data?.playlistV2?.content;
+    if (!content || !Array.isArray(content.items) || !content.items.length) break;
+    total = content.totalCount || 0;
+    for (const it of content.items) {
+      const t = it?.itemV2?.data || it?.item?.data;
+      if (!t || !t.name) continue;
+      const artists = (t.artists?.items || t.albumOfTrack?.artists?.items || []).map(a => a.profile?.name).filter(Boolean);
+      out.push(metadataTrack({
+        id: `spotify-${String(t.uri || '').split(':').pop() || Math.random().toString(36).slice(2)}`,
+        title: t.name,
+        artist: artists.join(', '),
+        duration: Math.round((t.trackDuration?.totalMilliseconds || 0) / 1000),
+        thumbnail: pickImage(t.albumOfTrack?.coverArt?.sources)
+      }));
+    }
+  }
+  return out;
+}
+
+// Apple Music pages carry the whole list as JSON; walk it for anything shaped like a song
+async function readAppleMusic(link) {
+  const body = await httpsGetText(link, {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9'
+  }, 15000);
+  const blocks = [];
+  const server = body.match(/<script[^>]*id=["']serialized-server-data["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (server) blocks.push(server[1]);
+  for (const m of body.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) blocks.push(m[1]);
+  const tracks = [];
+  const seen = new Set();
+  let name = '', cover = '';
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (!name && (node.contentDescriptor?.kind === 'playlist' || node.contentDescriptor?.kind === 'album' || node['@type'] === 'MusicPlaylist' || node['@type'] === 'MusicAlbum')) {
+      name = node.title || node.name || '';
+      cover = node.artwork?.dictionary?.url || node.artwork?.url || '';
+    }
+    const kind = node.contentDescriptor?.kind;
+    const title = String(node.title || (node['@type'] === 'MusicRecording' ? node.name : '') || '').trim();
+    const artist = String(node.artistName || node.byArtist?.name || (Array.isArray(node.byArtist) ? node.byArtist.map(a => a.name).join(', ') : '') || '').trim();
+    if (title && artist && (kind === 'song' || kind === 'music-video' || node['@type'] === 'MusicRecording' || node.durationInMillis)) {
+      const key = `${title}\u0000${artist}`.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        let duration = 0;
+        if (node.durationInMillis) duration = Math.round(node.durationInMillis / 1000);
+        else if (typeof node.duration === 'string') {
+          const d = node.duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+          if (d) duration = (+(d[1] || 0)) * 3600 + (+(d[2] || 0)) * 60 + (+(d[3] || 0));
+        }
+        tracks.push({ title, artist, duration });
+      }
+      return;
+    }
+    for (const k of Object.keys(node)) walk(node[k]);
+  };
+  for (const b of blocks) { try { walk(JSON.parse(b)); } catch (e) {} }
+  if (!name) {
+    const og = body.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']*)["']/i);
+    if (og) name = og[1].replace(/\s*on Apple\s*Music\s*$/i, '').trim();
+  }
+  cover = String(cover || '').replace('{w}x{h}bb.{f}', '600x600bb.jpg');
+  return {
+    name,
+    tracks: tracks.map(t => metadataTrack({ id: `apple-${crypto.createHash('sha1').update(t.title + t.artist).digest('hex').slice(0, 12)}`, title: t.title, artist: t.artist, duration: t.duration, thumbnail: cover }))
+  };
+}
+
+// YouTube, YouTube Music and SoundCloud playlists list straight from yt-dlp, already playable
+async function readStreamPlaylist(link) {
+  const isSc = /soundcloud\.com/i.test(link);
+  // SoundCloud's flat listing only has URLs, so its sets are resolved track by track
+  const raw = isSc
+    ? await executeYtDlp(['-J', '--skip-download', '--no-warnings', '--no-check-certificates', '--playlist-end', '500', '--', link], 180000)
+    : await executeYtDlp(['--flat-playlist', '-J', '--no-warnings', '--no-check-certificates', '--playlist-end', '2000', '--', link], 60000);
+  const data = safeJsonParse(raw, {});
+  const tracks = (data.entries || []).filter(e => e && (e.id || e.url) && e.title && !/^\[(private|deleted)/i.test(e.title)).map(e => {
+    const artist = String(e.artist || e.channel || e.uploader || '').replace(/\s+-\s+Topic$/, '');
+    if (isSc) {
+      return { id: `sc-${e.id}`, title: e.title, artist: artist || 'unknown artist', duration: Math.round(e.duration || 0), thumbnail: e.thumbnail || (e.thumbnails && e.thumbnails.length && e.thumbnails[e.thumbnails.length - 1].url) || '', url: e.webpage_url || e.url, platform: 'soundcloud', isCached: false };
+    }
+    return { id: e.id, title: e.title, artist: artist || 'unknown artist', duration: Math.round(e.duration || 0), thumbnail: `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`, url: `https://www.youtube.com/watch?v=${e.id}`, platform: 'youtube', isCached: false };
+  });
+  return { name: data.title || '', tracks };
+}
+
+async function readPlaylistLink(link) {
+  let host = '';
+  try { host = new URL(link).hostname.replace(/^www\./, ''); } catch (e) { throw new Error('not a link'); }
+  if (SPOTIFY_URL_RE.test(link)) return { source: 'spotify', ...(await readSpotifyEmbed(link)) };
+  if (host === 'music.apple.com') return { source: 'apple', ...(await readAppleMusic(link)) };
+  if (/(^|\.)youtube\.com$/.test(host) || host === 'youtu.be') return { source: host.startsWith('music.') ? 'ytmusic' : 'youtube', ...(await readStreamPlaylist(link)) };
+  if (/(^|\.)soundcloud\.com$/.test(host)) return { source: 'soundcloud', ...(await readStreamPlaylist(link)) };
+  throw new Error('unsupported link');
 }
 
 // Catalog-only results (no audio): played through the searchQuery -> YouTube resolution in app.js.
@@ -910,6 +1041,72 @@ function getJukeboxAnalysis(id, saved, trackUrl, platform) {
 }
 
 const SPOTIFY_CONFIG_PATH = path.join(DATA_DIR, 'spotify.json');
+
+// ---- Spotify account (PKCE login with the user's own Client ID): liked songs and every playlist
+const SPOTIFY_USER_PATH = path.join(DATA_DIR, 'spotify-user.json');
+const SPOTIFY_SCOPES = 'user-library-read playlist-read-private playlist-read-collaborative';
+let spotifyLogin = null;
+
+function spotifyClientId() {
+  try { return String(JSON.parse(fs.readFileSync(SPOTIFY_CONFIG_PATH, 'utf-8')).clientId || '') || process.env.RIFFLE_SPOTIFY_CLIENT_ID || ''; } catch (e) { return process.env.RIFFLE_SPOTIFY_CLIENT_ID || ''; }
+}
+const spotifyRedirectUri = () => `http://127.0.0.1:${server.address() ? server.address().port : PORT}/api/spotify-callback`;
+const readSpotifyUser = () => safeJsonParse(fs.existsSync(SPOTIFY_USER_PATH) ? fs.readFileSync(SPOTIFY_USER_PATH, 'utf-8') : '', null);
+const writeSpotifyUser = (u) => fs.writeFileSync(SPOTIFY_USER_PATH, JSON.stringify(u), 'utf-8');
+
+async function spotifyTokenRequest(form) {
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(form).toString()
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) throw new Error(data.error_description || data.error || `spotify ${res.status}`);
+  return data;
+}
+
+async function spotifyUserToken() {
+  const u = readSpotifyUser();
+  if (!u || !u.refresh) throw new Error('not connected');
+  if (u.access && u.expiresAt > Date.now() + 30000) return u.access;
+  const data = await spotifyTokenRequest({ grant_type: 'refresh_token', refresh_token: u.refresh, client_id: u.clientId });
+  Object.assign(u, { access: data.access_token, refresh: data.refresh_token || u.refresh, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 });
+  writeSpotifyUser(u);
+  return u.access;
+}
+
+async function spotifyApi(pathAndQuery) {
+  const token = await spotifyUserToken();
+  const res = await fetch(pathAndQuery.startsWith('https://') ? pathAndQuery : `https://api.spotify.com/v1/${pathAndQuery}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 429) {
+    await new Promise(r => setTimeout(r, Math.min(10, Number(res.headers.get('retry-after')) || 2) * 1000));
+    return spotifyApi(pathAndQuery);
+  }
+  if (!res.ok) throw new Error(`spotify ${res.status}`);
+  return res.json();
+}
+
+const spotifyItemTrack = (t) => t && t.name && metadataTrack({
+  id: `spotify-${t.id || Math.random().toString(36).slice(2)}`,
+  title: t.name,
+  artist: (t.artists || []).map(a => a.name).join(', '),
+  duration: Math.round((t.duration_ms || 0) / 1000),
+  thumbnail: pickImage(t.album && t.album.images)
+});
+
+async function spotifyPaged(first, pick, max = 5000) {
+  const out = [];
+  let next = first;
+  while (next && out.length < max) {
+    const page = await spotifyApi(next);
+    for (const it of page.items || []) {
+      const t = pick(it);
+      if (t) out.push(t);
+    }
+    next = page.next;
+  }
+  return out;
+}
 let spotifyToken = { value: null, expiresAt: 0 };
 
 function getSpotifyCredentials() {
@@ -2461,6 +2658,96 @@ const server = http.createServer(async (req, res) => {
   if (parsedUrl.pathname === '/api/local-track') {
     const trackId = parsedUrl.query.id || '';
     return handleLocalTrack(req, res, trackId);
+  }
+
+  if (parsedUrl.pathname === '/api/spotify-auth-start') {
+    const clientId = spotifyClientId();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    if (!/^[a-f0-9]{32}$/i.test(clientId)) return res.end(JSON.stringify({ success: false, error: 'no client id', redirectUri: spotifyRedirectUri() }));
+    const verifier = crypto.randomBytes(48).toString('base64url');
+    spotifyLogin = { verifier, state: crypto.randomBytes(16).toString('hex'), clientId, redirectUri: spotifyRedirectUri() };
+    const q = new URLSearchParams({
+      response_type: 'code', client_id: clientId, scope: SPOTIFY_SCOPES, redirect_uri: spotifyLogin.redirectUri, state: spotifyLogin.state,
+      code_challenge_method: 'S256', code_challenge: crypto.createHash('sha256').update(verifier).digest('base64url')
+    });
+    return res.end(JSON.stringify({ success: true, url: `https://accounts.spotify.com/authorize?${q}`, redirectUri: spotifyLogin.redirectUri }));
+  }
+
+  // the browser lands here after the Spotify login; the random state ties it to our own request
+  if (parsedUrl.pathname === '/api/spotify-callback') {
+    const page = (msg) => `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Riffle</title></head><body style="font-family:system-ui;background:#1b1b1f;color:#e6e1e5;display:grid;place-items:center;height:100vh;margin:0"><p>${msg}</p></body></html>`;
+    const login = spotifyLogin;
+    if (!login || parsedUrl.query.state !== login.state || !parsedUrl.query.code) {
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(page('The Spotify login did not go through. You can close this tab and try again in Riffle.'));
+    }
+    spotifyLogin = null;
+    spotifyTokenRequest({ grant_type: 'authorization_code', code: String(parsedUrl.query.code), redirect_uri: login.redirectUri, client_id: login.clientId, code_verifier: login.verifier })
+      .then((data) => {
+        writeSpotifyUser({ clientId: login.clientId, access: data.access_token, refresh: data.refresh_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(page('Riffle is connected to your Spotify account. You can close this tab.'));
+      })
+      .catch(() => {
+        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(page('The Spotify login did not go through. You can close this tab and try again in Riffle.'));
+      });
+    return;
+  }
+
+  if (parsedUrl.pathname === '/api/spotify-status') {
+    const u = readSpotifyUser();
+    const reply = (o) => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+    if (!u || !u.refresh) return reply({ connected: false, hasClientId: /^[a-f0-9]{32}$/i.test(spotifyClientId()), redirectUri: spotifyRedirectUri() });
+    spotifyApi('me').then(me => reply({ connected: true, name: me.display_name || me.id })).catch(() => reply({ connected: false, expired: true, hasClientId: true, redirectUri: spotifyRedirectUri() }));
+    return;
+  }
+
+  if (parsedUrl.pathname === '/api/spotify-logout' && req.method === 'POST') {
+    fs.promises.unlink(SPOTIFY_USER_PATH).catch(() => {});
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true }));
+  }
+
+  if (parsedUrl.pathname === '/api/spotify-library') {
+    Promise.all([
+      spotifyApi('me/tracks?limit=1'),
+      spotifyPaged('me/playlists?limit=50', p => p && p.id && { id: p.id, name: p.name, count: (p.tracks || p.items || {}).total || 0 }, 1000)
+    ]).then(([likes, playlists]) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, likes: likes.total || 0, playlists }));
+    }).catch((e) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    });
+    return;
+  }
+
+  if (parsedUrl.pathname === '/api/spotify-collection') {
+    const id = String(parsedUrl.query.id || '');
+    const job = id === 'likes'
+      ? spotifyPaged('me/tracks?limit=50', it => spotifyItemTrack(it.track))
+      : /^[A-Za-z0-9]+$/.test(id) ? spotifyPaged(`playlists/${id}/tracks?limit=100`, it => spotifyItemTrack(it.track || it.item)) : Promise.reject(new Error('bad id'));
+    job.then((tracks) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, tracks }));
+    }).catch((e) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    });
+    return;
+  }
+
+  if (parsedUrl.pathname === '/api/playlist-import') {
+    const link = String(parsedUrl.query.url || '').trim();
+    readPlaylistLink(link).then((data) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: !!data.tracks.length, error: data.tracks.length ? null : 'empty', ...data }));
+    }).catch((e) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message === 'unsupported link' || e.message === 'not a link' ? e.message : 'unreadable' }));
+    });
+    return;
   }
 
   if (parsedUrl.pathname === '/api/spotify-import') {
