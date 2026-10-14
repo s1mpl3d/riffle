@@ -586,7 +586,6 @@ window.RIFFLE_LOCALE = {
   // jukebox
   "Jukebox": "Jukebox",
   "Jukebox off": "Jukebox disattivata",
-  "The song is still downloading. Try again in a moment": "Il brano è ancora in download. Riprova tra poco",
   "Could not analyze this song": "Impossibile analizzare questo brano",
   "Jukebox on: {bpm} BPM, {n} beats": "Jukebox attivata: {bpm} BPM, {n} battute",
 
@@ -599,5 +598,27 @@ window.RIFFLE_LOCALE = {
   "More": "Di più",
   "Jukebox (beta)": "Jukebox (beta)",
   "{n} jump": "{n} salto",
-  "{n} jumps": "{n} salti"
+  "{n} jumps": "{n} salti",
+
+  // effects
+  "Muffled": "Ovattato",
+  "Cuts the highs, like music through a wall or under water": "Taglia gli alti, come musica attraverso un muro o sott'acqua",
+  "Under water": "Sott'acqua",
+  "Thin": "Sottile",
+  "Cuts the lows, like a phone speaker or an old radio": "Taglia i bassi, come l'altoparlante di un telefono o una vecchia radio",
+  "Telephone": "Telefono",
+  "Lo-fi": "Lo-fi",
+  "Fewer bits per sample for a crunchy, retro sound": "Meno bit per campione per un suono sgranato e retrò",
+  "Crushed": "Frantumato",
+  "Tremolo": "Tremolo",
+  "The volume pulses six times a second": "Il volume pulsa sei volte al secondo",
+  "Strong": "Forte",
+  "8D audio": "Audio 8D",
+  "The sound slowly circles between left and right. Best with headphones": "Il suono gira lentamente tra sinistra e destra. Meglio in cuffia",
+  "Chorus": "Chorus",
+  "Doubles the sound with a slightly delayed copy for a wider, shimmering tone": "Raddoppia il suono con una copia leggermente ritardata per un tono più ampio e brillante",
+  "Getting the jukebox ready...": "Preparazione della jukebox...",
+  "Could not get this song for the jukebox": "Impossibile ottenere questo brano per la jukebox",
+  "lo-fi": "lo-fi",
+  "telephone": "telefono"
 };

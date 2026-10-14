@@ -588,7 +588,6 @@ window.RIFFLE_LOCALE = {
   // jukebox
   "Jukebox": "Szafa grająca",
   "Jukebox off": "Szafa grająca wyłączona",
-  "The song is still downloading. Try again in a moment": "Utwór wciąż się pobiera. Spróbuj ponownie za chwilę",
   "Could not analyze this song": "Nie udało się przeanalizować tego utworu",
   "Jukebox on: {bpm} BPM, {n} beats": "Szafa grająca włączona: {bpm} BPM, uderzenia: {n}",
 
@@ -601,5 +600,27 @@ window.RIFFLE_LOCALE = {
   "More": "Więcej",
   "Jukebox (beta)": "Szafa grająca (beta)",
   "{n} jump": "{n} skok",
-  "{n} jumps": "Skoki: {n}"
+  "{n} jumps": "Skoki: {n}",
+
+  // effects
+  "Muffled": "Stłumiony",
+  "Cuts the highs, like music through a wall or under water": "Obcina wysokie tony, jak muzyka zza ściany lub pod wodą",
+  "Under water": "Pod wodą",
+  "Thin": "Cienki",
+  "Cuts the lows, like a phone speaker or an old radio": "Obcina niskie tony, jak głośnik telefonu lub stare radio",
+  "Telephone": "Telefon",
+  "Lo-fi": "Lo-fi",
+  "Fewer bits per sample for a crunchy, retro sound": "Mniej bitów na próbkę dla chropowatego, retro brzmienia",
+  "Crushed": "Zgnieciony",
+  "Tremolo": "Tremolo",
+  "The volume pulses six times a second": "Głośność pulsuje sześć razy na sekundę",
+  "Strong": "Mocny",
+  "8D audio": "Dźwięk 8D",
+  "The sound slowly circles between left and right. Best with headphones": "Dźwięk powoli krąży między lewą a prawą stroną. Najlepiej w słuchawkach",
+  "Chorus": "Chorus",
+  "Doubles the sound with a slightly delayed copy for a wider, shimmering tone": "Podwaja dźwięk lekko opóźnioną kopią dla szerszego, mieniącego się brzmienia",
+  "Getting the jukebox ready...": "Przygotowywanie szafy grającej...",
+  "Could not get this song for the jukebox": "Nie udało się pobrać tego utworu do szafy grającej",
+  "lo-fi": "lo-fi",
+  "telephone": "telefon"
 };

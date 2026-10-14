@@ -586,7 +586,6 @@ window.RIFFLE_LOCALE = {
   // jukebox
   "Jukebox": "주크박스",
   "Jukebox off": "주크박스 꺼짐",
-  "The song is still downloading. Try again in a moment": "곡을 아직 다운로드하는 중입니다. 잠시 후 다시 시도하세요",
   "Could not analyze this song": "이 곡을 분석할 수 없습니다",
   "Jukebox on: {bpm} BPM, {n} beats": "주크박스 켜짐: {bpm} BPM, {n}비트",
 
@@ -599,5 +598,27 @@ window.RIFFLE_LOCALE = {
   "More": "많이",
   "Jukebox (beta)": "주크박스 (베타)",
   "{n} jump": "{n}회 점프",
-  "{n} jumps": "{n}회 점프"
+  "{n} jumps": "{n}회 점프",
+
+  // effects
+  "Muffled": "먹먹하게",
+  "Cuts the highs, like music through a wall or under water": "고음을 잘라 벽 너머나 물속에서 듣는 것처럼",
+  "Under water": "물속",
+  "Thin": "가늘게",
+  "Cuts the lows, like a phone speaker or an old radio": "저음을 잘라 휴대폰 스피커나 오래된 라디오처럼",
+  "Telephone": "전화",
+  "Lo-fi": "로파이",
+  "Fewer bits per sample for a crunchy, retro sound": "샘플당 비트 수를 줄여 거칠고 레트로한 소리로",
+  "Crushed": "뭉개짐",
+  "Tremolo": "트레몰로",
+  "The volume pulses six times a second": "볼륨이 1초에 여섯 번 맥동합니다",
+  "Strong": "강하게",
+  "8D audio": "8D 오디오",
+  "The sound slowly circles between left and right. Best with headphones": "소리가 좌우를 천천히 오갑니다. 헤드폰 권장",
+  "Chorus": "코러스",
+  "Doubles the sound with a slightly delayed copy for a wider, shimmering tone": "살짝 지연된 사본을 겹쳐 더 넓고 반짝이는 소리로",
+  "Getting the jukebox ready...": "주크박스 준비 중...",
+  "Could not get this song for the jukebox": "주크박스용으로 이 곡을 가져올 수 없습니다",
+  "lo-fi": "로파이",
+  "telephone": "전화"
 };

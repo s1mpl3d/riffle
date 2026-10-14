@@ -588,7 +588,6 @@ window.RIFFLE_LOCALE = {
   // jukebox
   "Jukebox": "Джукбокс",
   "Jukebox off": "Джукбокс выключен",
-  "The song is still downloading. Try again in a moment": "Песня ещё загружается. Попробуйте чуть позже",
   "Could not analyze this song": "Не удалось проанализировать эту песню",
   "Jukebox on: {bpm} BPM, {n} beats": "Джукбокс включён: {bpm} BPM, долей: {n}",
 
@@ -601,5 +600,27 @@ window.RIFFLE_LOCALE = {
   "More": "Больше",
   "Jukebox (beta)": "Джукбокс (бета)",
   "{n} jump": "{n} прыжок",
-  "{n} jumps": "Прыжков: {n}"
+  "{n} jumps": "Прыжков: {n}",
+
+  // effects
+  "Muffled": "Приглушённый",
+  "Cuts the highs, like music through a wall or under water": "Срезает высокие частоты, как музыка за стеной или под водой",
+  "Under water": "Под водой",
+  "Thin": "Тонкий",
+  "Cuts the lows, like a phone speaker or an old radio": "Срезает низкие частоты, как динамик телефона или старое радио",
+  "Telephone": "Телефон",
+  "Lo-fi": "Лоу-фай",
+  "Fewer bits per sample for a crunchy, retro sound": "Меньше бит на отсчёт для хрустящего ретро-звучания",
+  "Crushed": "Раздроблённый",
+  "Tremolo": "Тремоло",
+  "The volume pulses six times a second": "Громкость пульсирует шесть раз в секунду",
+  "Strong": "Сильно",
+  "8D audio": "8D-звук",
+  "The sound slowly circles between left and right. Best with headphones": "Звук медленно кружит между левым и правым каналом. Лучше в наушниках",
+  "Chorus": "Хорус",
+  "Doubles the sound with a slightly delayed copy for a wider, shimmering tone": "Удваивает звук слегка задержанной копией для более широкого, мерцающего тона",
+  "Getting the jukebox ready...": "Готовим джукбокс...",
+  "Could not get this song for the jukebox": "Не удалось получить эту песню для джукбокса",
+  "lo-fi": "лоу-фай",
+  "telephone": "телефон"
 };

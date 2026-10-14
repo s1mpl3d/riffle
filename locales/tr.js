@@ -586,7 +586,6 @@ window.RIFFLE_LOCALE = {
   // jukebox
   "Jukebox": "Jukebox",
   "Jukebox off": "Jukebox kapalı",
-  "The song is still downloading. Try again in a moment": "Şarkı hâlâ indiriliyor. Birazdan tekrar deneyin",
   "Could not analyze this song": "Bu şarkı analiz edilemedi",
   "Jukebox on: {bpm} BPM, {n} beats": "Jukebox açık: {bpm} BPM, {n} vuruş",
 
@@ -599,5 +598,27 @@ window.RIFFLE_LOCALE = {
   "More": "Daha çok",
   "Jukebox (beta)": "Jukebox (beta)",
   "{n} jump": "{n} atlama",
-  "{n} jumps": "{n} atlama"
+  "{n} jumps": "{n} atlama",
+
+  // effects
+  "Muffled": "Boğuk",
+  "Cuts the highs, like music through a wall or under water": "Tizleri keser, duvarın ardından ya da su altından gelen müzik gibi",
+  "Under water": "Su altı",
+  "Thin": "İnce",
+  "Cuts the lows, like a phone speaker or an old radio": "Basları keser, telefon hoparlörü ya da eski bir radyo gibi",
+  "Telephone": "Telefon",
+  "Lo-fi": "Lo-fi",
+  "Fewer bits per sample for a crunchy, retro sound": "Örnek başına daha az bit ile cızırtılı, retro bir ses",
+  "Crushed": "Ezik",
+  "Tremolo": "Tremolo",
+  "The volume pulses six times a second": "Ses saniyede altı kez atar",
+  "Strong": "Güçlü",
+  "8D audio": "8D ses",
+  "The sound slowly circles between left and right. Best with headphones": "Ses sol ile sağ arasında yavaşça döner. Kulaklıkla en iyisi",
+  "Chorus": "Koro",
+  "Doubles the sound with a slightly delayed copy for a wider, shimmering tone": "Hafifçe geciktirilmiş bir kopyayla sesi ikiler, daha geniş ve parlak bir ton verir",
+  "Getting the jukebox ready...": "Jukebox hazırlanıyor...",
+  "Could not get this song for the jukebox": "Bu şarkı jukebox için alınamadı",
+  "lo-fi": "lo-fi",
+  "telephone": "telefon"
 };

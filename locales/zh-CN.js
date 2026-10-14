@@ -586,7 +586,6 @@ window.RIFFLE_LOCALE = {
   // jukebox
   "Jukebox": "点唱机",
   "Jukebox off": "点唱机已关闭",
-  "The song is still downloading. Try again in a moment": "歌曲仍在下载，请稍后再试",
   "Could not analyze this song": "无法分析这首歌",
   "Jukebox on: {bpm} BPM, {n} beats": "点唱机已开启：{bpm} BPM，{n} 拍",
 
@@ -599,5 +598,27 @@ window.RIFFLE_LOCALE = {
   "More": "更多",
   "Jukebox (beta)": "点唱机（测试版）",
   "{n} jump": "{n} 次跳转",
-  "{n} jumps": "{n} 次跳转"
+  "{n} jumps": "{n} 次跳转",
+
+  // effects
+  "Muffled": "闷声",
+  "Cuts the highs, like music through a wall or under water": "削减高音，像隔着墙或在水下听音乐",
+  "Under water": "水下",
+  "Thin": "单薄",
+  "Cuts the lows, like a phone speaker or an old radio": "削减低音，像手机扬声器或老式收音机",
+  "Telephone": "电话",
+  "Lo-fi": "低保真",
+  "Fewer bits per sample for a crunchy, retro sound": "降低每个采样的位数，得到粗糙复古的声音",
+  "Crushed": "粗糙",
+  "Tremolo": "颤音",
+  "The volume pulses six times a second": "音量每秒脉动六次",
+  "Strong": "强",
+  "8D audio": "8D 音频",
+  "The sound slowly circles between left and right. Best with headphones": "声音在左右之间缓慢环绕。建议使用耳机",
+  "Chorus": "合唱",
+  "Doubles the sound with a slightly delayed copy for a wider, shimmering tone": "叠加一份略微延迟的声音，使音色更宽广、闪烁",
+  "Getting the jukebox ready...": "正在准备点唱机...",
+  "Could not get this song for the jukebox": "无法为点唱机获取这首歌",
+  "lo-fi": "低保真",
+  "telephone": "电话"
 };

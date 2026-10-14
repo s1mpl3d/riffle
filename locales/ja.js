@@ -586,7 +586,6 @@ window.RIFFLE_LOCALE = {
   // jukebox
   "Jukebox": "ジュークボックス",
   "Jukebox off": "ジュークボックス オフ",
-  "The song is still downloading. Try again in a moment": "曲はまだダウンロード中です。少ししてからもう一度お試しください",
   "Could not analyze this song": "この曲を解析できませんでした",
   "Jukebox on: {bpm} BPM, {n} beats": "ジュークボックス オン: {bpm} BPM、{n} ビート",
 
@@ -599,5 +598,27 @@ window.RIFFLE_LOCALE = {
   "More": "多く",
   "Jukebox (beta)": "ジュークボックス (ベータ)",
   "{n} jump": "{n} 回ジャンプ",
-  "{n} jumps": "{n} 回ジャンプ"
+  "{n} jumps": "{n} 回ジャンプ",
+
+  // effects
+  "Muffled": "こもった音",
+  "Cuts the highs, like music through a wall or under water": "高音をカットし、壁越しや水中で聴くような音に",
+  "Under water": "水中",
+  "Thin": "細い音",
+  "Cuts the lows, like a phone speaker or an old radio": "低音をカットし、電話のスピーカーや古いラジオのような音に",
+  "Telephone": "電話",
+  "Lo-fi": "ローファイ",
+  "Fewer bits per sample for a crunchy, retro sound": "サンプルあたりのビット数を減らし、ざらついたレトロな音に",
+  "Crushed": "粗い",
+  "Tremolo": "トレモロ",
+  "The volume pulses six times a second": "音量が1秒に6回脈打ちます",
+  "Strong": "強い",
+  "8D audio": "8Dオーディオ",
+  "The sound slowly circles between left and right. Best with headphones": "音が左右の間をゆっくり回ります。ヘッドホン推奨",
+  "Chorus": "コーラス",
+  "Doubles the sound with a slightly delayed copy for a wider, shimmering tone": "わずかに遅らせた音を重ね、広がりのあるきらめく音に",
+  "Getting the jukebox ready...": "ジュークボックスを準備中...",
+  "Could not get this song for the jukebox": "このジュークボックス用の曲を取得できませんでした",
+  "lo-fi": "ローファイ",
+  "telephone": "電話"
 };
