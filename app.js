@@ -1,3 +1,39 @@
+window.addEventListener('error', (e) => { if (e.error) console.error('Unhandled error:', e.error); });
+window.addEventListener('unhandledrejection', (e) => console.error('Unhandled rejection:', e.reason));
+
+// a damaged stored value falls back to the default instead of stopping the app from starting
+function readStored(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    const v = JSON.parse(raw);
+    if (Array.isArray(fallback)) return Array.isArray(v) ? v : fallback;
+    if (fallback && typeof fallback === 'object') return v && typeof v === 'object' && !Array.isArray(v) ? v : fallback;
+    return typeof v === typeof fallback ? v : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+// text from YouTube, SoundCloud and the like goes into HTML templates only through this
+const escapeHtml = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// the local server only answers /api calls that carry the window's token
+(() => {
+  const token = window.electronAPI && window.electronAPI.serverToken;
+  if (!token || !window.fetch) return;
+  const plain = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const target = typeof input === 'string' ? input : (input && input.url) || '';
+    if (!/^http:\/\/127\.0\.0\.1:\d+\/api\//.test(target)) return plain(input, init);
+    const opts = Object.assign({}, init);
+    const headers = new Headers(opts.headers || (input && input.headers) || undefined);
+    headers.set('X-Riffle-Token', token);
+    opts.headers = headers;
+    return plain(input, opts);
+  };
+})();
+
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -173,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     toast.innerHTML = `
       <span class="toast-icon">${iconSvg}</span>
-      <span class="toast-text">${cleanMessage}</span>
+      <span class="toast-text">${escapeHtml(cleanMessage)}</span>
     `;
 
     const textEl = toast.querySelector('.toast-text');
@@ -338,7 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  const rawCustomPresets = JSON.parse(localStorage.getItem('devsize_custom_presets') || '[]');
+  const rawCustomPresets = readStored('devsize_custom_presets', []);
   const normalizedCustomPresets = rawCustomPresets.map(normalizePreset).filter(Boolean);
 
   let jukebox = null;
@@ -403,12 +439,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                           air: 0,
                           bass: 0
                           },
-                          vfx: { ...defaultVfx, ...JSON.parse(localStorage.getItem('devsize_vfx') || '{}'), bassPulse: false, particles: false, soundwaveRings: false, borderGlow: false, backdropBlur: false, crt: false, grain: false, lyricsSpotlight: false },
-                          favorites: JSON.parse(localStorage.getItem('devsize_favorites') || '[]'),
+                          vfx: { ...defaultVfx, ...readStored('devsize_vfx', {}), bassPulse: false, particles: false, soundwaveRings: false, borderGlow: false, backdropBlur: false, crt: false, grain: false, lyricsSpotlight: false },
+                          favorites: readStored('devsize_favorites', []),
                           savedTracks: [],
                           savedDirectory: '',
-                          history: JSON.parse(localStorage.getItem('devsize_history') || '[]'),
-                          playlists: JSON.parse(localStorage.getItem('devsize_playlists') || '[]'),
+                          history: readStored('devsize_history', []),
+                          playlists: readStored('devsize_playlists', []),
                           customPresets: normalizedCustomPresets,
                           syncedLyrics: [],
                           glitchTimes: [],
@@ -419,7 +455,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                           currentAbortController: null,
                           presetToRenameId: null,
                           serverPort: 38472,
-                          discordRpcEnabled: JSON.parse(localStorage.getItem('devsize_discord_rpc') ?? 'true'),
+                          discordRpcEnabled: readStored('devsize_discord_rpc', true),
                           lastBroadcastStateKey: null,
                           syncTimeout: null,
                           scrubberDragTargetTime: undefined
@@ -2658,6 +2694,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             el.nativeAudio.play().catch(e => console.warn('Play error:', e));
           }
         });
+        // one recovery attempt per kind before giving up on the stream
+        const retried = {};
+        hlsInstance.on(Hls.Events.ERROR, (event, err) => {
+          if (!err || !err.fatal || !hlsInstance) return;
+          if (err.type === Hls.ErrorTypes.NETWORK_ERROR && !retried.net) { retried.net = true; hlsInstance.startLoad(); return; }
+          if (err.type === Hls.ErrorTypes.MEDIA_ERROR && !retried.media) { retried.media = true; hlsInstance.recoverMediaError(); return; }
+          console.warn('HLS fatal error:', err.type, err.details);
+          try { hlsInstance.destroy(); } catch (e) {}
+          hlsInstance = null;
+          if (currentToken === state.loadToken) showToast(tr('This stream stopped working. Try another source'), 'error');
+        });
       } else {
         el.nativeAudio.src = data.streamUrl;
         el.nativeAudio.load();
@@ -3459,7 +3506,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       chip.dataset.presetId = p.id;
 
       chip.innerHTML = `
-      <span class="preset-name-label">${isCustom ? p.name : tr(p.name)}</span>
+      <span class="preset-name-label">${escapeHtml(isCustom ? p.name : tr(p.name))}</span>
       ${isCustom ? `
         <div class="preset-actions">
           <button type="button" class="preset-btn-action btn-rename-p" title="${tr('Rename')}" aria-label="${tr('Rename preset')}">
@@ -3655,7 +3702,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.error('Search error:', err);
       const isOff = !navigator.onLine;
-      if (el.searchTracksList) el.searchTracksList.innerHTML = `<div class="empty-hint">${isOff ? tr('Offline: connect to the internet to search new tracks') : tr('Error fetching results: {error}', { error: err.message })}</div>`;
+      if (el.searchTracksList) el.searchTracksList.innerHTML = `<div class="empty-hint">${isOff ? tr('Offline: connect to the internet to search new tracks') : tr('Error fetching results: {error}', { error: escapeHtml(err.message) })}</div>`;
       if (el.resultsCount) el.resultsCount.textContent = isOff ? tr('offline') : tr('error');
     }
   }
@@ -3694,10 +3741,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       row.innerHTML = `
       <span class="track-row-index">${idx + 1}</span>
-      <img class="track-row-thumb" src="${smallThumb(coverOf(track))}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
+      <img class="track-row-thumb" src="${escapeHtml(smallThumb(coverOf(track)))}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
       <div class="track-row-info">
-      <span class="track-row-title">${(track.title || 'untitled')}</span>
-      <span class="track-row-artist" title="${tr('view artist profile')}">${(track.artist || tr('unknown artist'))}</span>
+      <span class="track-row-title">${escapeHtml(track.title || 'untitled')}</span>
+      <span class="track-row-artist" title="${tr('view artist profile')}">${escapeHtml(track.artist || tr('unknown artist'))}</span>
       </div>
       <span class="track-row-duration">${formatDuration(track.duration)}</span>
       <div class="track-row-actions">
@@ -3972,7 +4019,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (el.artistAvatarFallback) el.artistAvatarFallback.style.display = 'none';
         if (el.artistHeroBackdrop) {
-          el.artistHeroBackdrop.style.backgroundImage = `url("${data.artist.avatar}")`;
+          el.artistHeroBackdrop.style.backgroundImage = `url(${JSON.stringify(String(data.artist.avatar))})`;
         }
       }
 
@@ -4515,7 +4562,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       infoEl.className = 'playlist-item-info';
       const trackCount = (pl.tracks || []).length;
       infoEl.innerHTML = `
-        <span class="playlist-item-name">${(pl.name || tr('untitled'))}</span>
+        <span class="playlist-item-name">${escapeHtml(pl.name || tr('untitled'))}</span>
         <span class="playlist-item-count">${trn(trackCount, '{n} track', '{n} tracks')}</span>
       `;
 
@@ -6762,10 +6809,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           pill.className = 'quick-play-pill';
           pill.style.animationDelay = (idx * 60) + 'ms';
           pill.innerHTML = `
-          <img class="quick-play-pill-img" src="${smallThumb(coverOf(t))}" alt="" decoding="async" onerror="this.style.visibility='hidden'">
+          <img class="quick-play-pill-img" src="${escapeHtml(smallThumb(coverOf(t)))}" alt="" decoding="async" onerror="this.style.visibility='hidden'">
           <div class="quick-play-pill-text">
-          <span class="quick-play-pill-title">${(t.title || 'untitled')}</span>
-          <span class="quick-play-pill-artist">${(t.artist || '')}</span>
+          <span class="quick-play-pill-title">${escapeHtml(t.title || 'untitled')}</span>
+          <span class="quick-play-pill-artist">${escapeHtml(t.artist || '')}</span>
           </div>
           `;
           pill.addEventListener('click', () => {
@@ -6860,14 +6907,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             card.dataset.index = String(idx);
             card.innerHTML = `
               <div class="my-wave-track-cover-wrap">
-                <img class="my-wave-track-cover" src="${coverOf(track)}" alt="" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'280\\' height=\\'280\\' fill=\\'%23555\\'><rect width=\\'100%\\' height=\\'100%\\'/></svg>'">
+                <img class="my-wave-track-cover" src="${escapeHtml(coverOf(track))}" alt="" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'280\\' height=\\'280\\' fill=\\'%23555\\'><rect width=\\'100%\\' height=\\'100%\\'/></svg>'">
                 <div class="my-wave-track-play-overlay">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                 </div>
               </div>
               <div class="my-wave-track-meta">
-                <span class="my-wave-track-title">${track.title || tr('Untitled')}</span>
-                <span class="my-wave-track-artist">${track.artist || 'Unknown'}</span>
+                <span class="my-wave-track-title">${escapeHtml(track.title || tr('Untitled'))}</span>
+                <span class="my-wave-track-artist">${escapeHtml(track.artist || 'Unknown')}</span>
               </div>
             `;
 
@@ -6890,8 +6937,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           if (focusedMeta && myWaveCurrentTracks[0]) {
             focusedMeta.innerHTML = `
-              <div class="my-wave-focused-title" id="my-wave-focused-title">${myWaveCurrentTracks[0].title || tr('Untitled')}</div>
-              <div class="my-wave-focused-artist" id="my-wave-focused-artist">${myWaveCurrentTracks[0].artist || 'Unknown'}</div>
+              <div class="my-wave-focused-title" id="my-wave-focused-title">${escapeHtml(myWaveCurrentTracks[0].title || tr('Untitled'))}</div>
+              <div class="my-wave-focused-artist" id="my-wave-focused-artist">${escapeHtml(myWaveCurrentTracks[0].artist || 'Unknown')}</div>
             `;
             updateAmbientLight(myWaveCurrentTracks[0].thumbnail);
           }

@@ -7,6 +7,65 @@ const path = require('path');
 const os = require('os');
 const { spawn } = require("child_process");
 const { StringDecoder } = require("string_decoder");
+const dns = require('dns');
+const net = require('net');
+
+// every /api call needs this token (the window gets it through preload), so a web page
+// in a browser can't drive the local server. Media the page loads as <audio>/<img> can't
+// carry headers, so those read-only routes are left open.
+const SERVER_TOKEN = crypto.randomBytes(24).toString('hex');
+const OPEN_ROUTES = new Set(['/api/local-track', '/api/library-file', '/api/saved-file', '/api/audio-proxy', '/api/local-thumbnail', '/api/lyrics-stream']);
+
+function tokenMatches(provided) {
+  if (typeof provided !== 'string' || provided.length !== SERVER_TOKEN.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(SERVER_TOKEN));
+}
+
+const isHttpUrl = (value) => typeof value === 'string' && /^https?:\/\//i.test(value);
+
+function ipv4Private(a, b) {
+  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && (b === 168 || b === 0)) || (a === 198 && (b === 18 || b === 19)) || (a === 100 && b >= 64 && b <= 127);
+}
+
+function isPrivateIp(address) {
+  const kind = net.isIP(address);
+  if (kind === 4) {
+    const [a, b] = address.split('.').map(Number);
+    return ipv4Private(a, b);
+  }
+  if (kind === 6) {
+    const h = address.toLowerCase();
+    if (h === '::' || h === '::1' || /^fe[89ab]/.test(h) || /^f[cd]/.test(h)) return true;
+    const mapped = h.match(/^::ffff:(\d+)\.(\d+)\.\d+\.\d+$/);
+    return mapped ? ipv4Private(Number(mapped[1]), Number(mapped[2])) : false;
+  }
+  return true;
+}
+
+// numeric forms like 2130706433 or 0x7f000001 also mean 127.0.0.1
+async function isPrivateHost(hostname) {
+  let host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host || host === 'localhost' || /\.(localhost|local|internal)$/.test(host)) return true;
+  const n = /^\d{1,10}$/.test(host) ? Number(host) : /^0x[0-9a-f]+$/.test(host) ? parseInt(host, 16) : NaN;
+  if (isFinite(n) && n <= 0xffffffff) host = [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+  if (net.isIP(host)) return isPrivateIp(host);
+  try {
+    const addrs = await dns.promises.lookup(host, { all: true });
+    return !addrs.length || addrs.some(a => isPrivateIp(a.address));
+  } catch (e) {
+    return true;
+  }
+}
+
+function pipeFile(stream, res) {
+  stream.on('error', () => {
+    if (!res.headersSent) { try { res.writeHead(500); } catch (e) {} }
+    try { res.end(); } catch (e) {}
+  });
+  res.on('close', () => stream.destroy());
+  stream.pipe(res);
+}
 
 const PORT = Number(process.env.RIFFLE_PORT) || 38472;
 const { DATA_DIR, CACHE_DIR, CUSTOM_LYRICS_DIR, LYRICS_DIR, THUMBNAILS_DIR, METADATA_PATH, LIBRARY_DIR, LIBRARY_PATH, ytDlpCommand, resolveBinary } = require('./platform');
@@ -945,13 +1004,14 @@ async function tiktokItemToTrack(item, fallbackUrl) {
 // accepts a video link, a profile link or a bare @username
 async function resolveTiktokLink(link, limit = 30) {
   if (/^@[\w.]+$/.test(link)) link = `https://www.tiktok.com/${link}`;
+  if (!isHttpUrl(link)) throw new Error('not a TikTok link');
   if (TIKTOK_PROFILE_RE.test(link)) {
-    const raw = await executeYtDlp(['--flat-playlist', '--dump-single-json', '--playlist-end', String(limit), '--no-warnings', link], 45000);
+    const raw = await executeYtDlp(['--flat-playlist', '--dump-single-json', '--playlist-end', String(limit), '--no-warnings', '--', link], 45000);
     const data = JSON.parse(raw);
     const entries = (data.entries || []).filter(e => e && e.id);
     return Promise.all(entries.map(e => tiktokItemToTrack(e, `${link.replace(/[?#].*$/, '').replace(/\/$/, '')}/video/${e.id}`)));
   }
-  const raw = await executeYtDlp(['--dump-single-json', '--no-playlist', '--skip-download', '--no-warnings', link], 25000);
+  const raw = await executeYtDlp(['--dump-single-json', '--no-playlist', '--skip-download', '--no-warnings', '--', link], 25000);
   return [await tiktokItemToTrack(JSON.parse(raw), link)];
 }
 
@@ -1041,7 +1101,8 @@ async function runTrackDownload(trackUrl, cleanId, trackId, platform, meta) {
     args.push('--extractor-args', 'youtube:player_client=android_creator,android,web');
   }
 
-  args.push(trackUrl);
+  if (!isHttpUrl(trackUrl)) { downloadingSet.delete(cleanId); return; }
+  args.push('--', trackUrl);
 
   if (meta.thumbnail) {
     cacheThumbnailToDisk(cleanId, meta.thumbnail).catch(() => {});
@@ -1108,7 +1169,8 @@ async function prefetchTrack(trackUrl, trackId, platform) {
       args.push('--extractor-args', 'youtube:player_client=android_creator,android,web');
       args.push('-f', 'bestaudio/ba/b');
     }
-    args.push(trackUrl);
+    if (!isHttpUrl(trackUrl)) return;
+    args.push('--', trackUrl);
 
     const raw = await executeYtDlp(args, 18000);
     const lines = raw.trim().split('\n').filter(l => l.startsWith('http'));
@@ -1325,7 +1387,8 @@ async function handleStreamInfo(req, res, trackUrl, trackId, platform = 'youtube
     if (platform === 'youtube') {
       args.push('--extractor-args', 'youtube:player_client=android_creator,android,web');
     }
-    args.push(trackUrl);
+    if (!isHttpUrl(trackUrl)) throw new Error('not a link');
+    args.push('--', trackUrl);
     const raw = await executeYtDlp(args, 18000);
     const lines = raw.trim().split('\n').map(l => l.trim()).filter(l => l.startsWith('http'));
     if (lines.length > 0) streamUrl = lines[0];
@@ -1482,27 +1545,29 @@ async function serveAudioFile(req, res, filePath) {
     const contentType = AUDIO_MIME[path.extname(filePath).toLowerCase()] || 'audio/mpeg';
 
     if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunksize = (end - start) + 1;
-      const file = fs.createReadStream(filePath, { start, end });
-      const head = {
+      const m = /^bytes=(\d*)-(\d*)$/.exec(String(range).trim());
+      let start = m && m[1] !== '' ? parseInt(m[1], 10) : NaN;
+      let end = m && m[2] !== '' ? parseInt(m[2], 10) : fileSize - 1;
+      if (m && m[1] === '' && m[2] !== '') { start = Math.max(0, fileSize - parseInt(m[2], 10)); end = fileSize - 1; }
+      end = Math.min(end, fileSize - 1);
+      if (!m || !isFinite(start) || start > end || start >= fileSize) {
+        res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
+        return res.end();
+      }
+      res.writeHead(206, {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
+        'Content-Length': end - start + 1,
         'Content-Type': contentType,
-      };
-      res.writeHead(206, head);
-      file.pipe(res);
+      });
+      pipeFile(fs.createReadStream(filePath, { start, end }), res);
     } else {
-      const head = {
+      res.writeHead(200, {
         'Content-Length': fileSize,
         'Content-Type': contentType,
         'Accept-Ranges': 'bytes'
-      };
-      res.writeHead(200, head);
-      fs.createReadStream(filePath).pipe(res);
+      });
+      pipeFile(fs.createReadStream(filePath), res);
     }
   } catch (e) {
     res.writeHead(500);
@@ -1510,36 +1575,38 @@ async function serveAudioFile(req, res, filePath) {
   }
 }
 
-function handleAudioProxy(req, res, targetUrl) {
-  if (!targetUrl) {
-    res.writeHead(400);
-    return res.end('Missing url');
-  }
+const PROXY_HEADERS = ['range', 'user-agent', 'accept', 'accept-language', 'if-range'];
 
+async function handleAudioProxy(req, res, targetUrl) {
+  if (!isHttpUrl(targetUrl) || (req.method !== 'GET' && req.method !== 'HEAD')) {
+    res.writeHead(400);
+    return res.end('Bad request');
+  }
   try {
     const parsed = new URL(targetUrl);
+    if (await isPrivateHost(parsed.hostname)) {
+      res.writeHead(403);
+      return res.end('Blocked');
+    }
     const client = parsed.protocol === 'https:' ? https : http;
+    const headers = { host: parsed.host };
+    for (const h of PROXY_HEADERS) if (req.headers[h]) headers[h] = req.headers[h];
 
-    const headers = { ...req.headers, host: parsed.host };
-    delete headers['connection'];
-
-    const proxyReq = client.request(targetUrl, {
-      method: req.method,
-      headers: headers
-    }, (proxyRes) => {
+    const proxyReq = client.request(targetUrl, { method: req.method, headers }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.on('error', () => res.destroy());
       proxyRes.pipe(res);
     });
-
-    proxyReq.on('error', (e) => {
+    proxyReq.setTimeout(30000, () => proxyReq.destroy(new Error('timeout')));
+    proxyReq.on('error', () => {
       if (!res.headersSent) res.writeHead(502);
-      res.end(e.message);
+      res.end();
     });
-
-    req.pipe(proxyReq);
+    res.on('close', () => proxyReq.destroy());
+    proxyReq.end();
   } catch (e) {
-    res.writeHead(500);
-    res.end(e.message);
+    if (!res.headersSent) res.writeHead(500);
+    res.end();
   }
 }
 
@@ -1631,7 +1698,7 @@ async function handleDownload(req, res, trackUrl, title, artist, format = 'mp3',
   const tempTemplate = path.join(DOWNLOADS_DIR, `${cleanArtist} - ${cleanTitle}.%(ext)s`);
 
   let targetUrl = trackUrl;
-  if (!targetUrl || targetUrl.includes('deezer.com') || targetUrl.includes('spotify.com')) {
+  if (!isHttpUrl(targetUrl) || targetUrl.includes('deezer.com') || targetUrl.includes('spotify.com')) {
     targetUrl = `ytsearch1:${cleanArtist} ${cleanTitle} official audio`;
   }
 
@@ -1674,7 +1741,7 @@ async function handleDownload(req, res, trackUrl, title, artist, format = 'mp3',
     '--add-metadata',
     '-o', tempTemplate,
     '--extractor-args', 'youtube:player_client=android_creator,android,web',
-    targetUrl
+    '--', targetUrl
   ];
 
   try {
@@ -1698,7 +1765,7 @@ async function handleDownload(req, res, trackUrl, title, artist, format = 'mp3',
         '--audio-format', ext,
         '--audio-quality', quality.toString(),
         '-o', tempTemplate,
-        targetUrl
+        '--', targetUrl
       ];
       await executeYtDlp(fallbackArgs, DOWNLOAD_TIMEOUT_MS);
       recordSaved();
@@ -2038,7 +2105,7 @@ async function fetchSuggestions(query) {
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Riffle-Token, Range');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
@@ -2047,6 +2114,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   const parsedUrl = url.parse(req.url, true);
+
+  if (parsedUrl.pathname.startsWith('/api/') && !OPEN_ROUTES.has(parsedUrl.pathname) && !tokenMatches(req.headers['x-riffle-token'])) {
+    res.writeHead(403);
+    return res.end();
+  }
 
   if (parsedUrl.pathname === '/api/translate' && req.method === 'POST') {
     let body = '';
@@ -2525,6 +2597,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 function startServer(port = PORT) {
+  if (server.listening) return Promise.resolve(server.address().port);
   return new Promise((resolve, reject) => {
     server.listen(port, '127.0.0.1', () => {
       console.log(`Riffle server running on http://127.0.0.1:${port}`);
@@ -2545,7 +2618,7 @@ function startServer(port = PORT) {
   });
 }
 
-module.exports = { startServer, PORT };
+module.exports = { startServer, PORT, getServerToken: () => SERVER_TOKEN };
 
 if (require.main === module) {
   startServer();

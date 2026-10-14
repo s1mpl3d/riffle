@@ -73,7 +73,7 @@ function runGUI() {
 
   require('./migrate').migrateFromRiff(app);
 
-  const { startServer, PORT } = require('./server');
+  const { startServer, PORT, getServerToken } = require('./server');
   const discordRPC = require('./discord-rpc');
 
   let mainWindow = null;
@@ -368,6 +368,7 @@ function runGUI() {
                                    useContentSize: true,
                                    webPreferences: {
                                      preload: path.join(__dirname, 'preload.js'),
+                                     additionalArguments: [`--riffle-token=${getServerToken()}`],
                                    nodeIntegration: false,
                                    contextIsolation: true,
                                    webSecurity: false,
