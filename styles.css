@@ -5553,3 +5553,20 @@ body.perf .dq-row.is-converting .dq-bar > div, body.perf .nav-item.is-downloadin
   cursor: pointer;
 }
 .btn-text-pill:hover { background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent); }
+
+.eq-modes { display: flex; align-items: center; gap: 4px; flex: none; }
+.eq-mode-btn {
+  border: none; font: inherit; cursor: pointer;
+  font-size: calc(12px * var(--font-scale, 1)); font-weight: 500;
+  padding: 5px 12px; border-radius: var(--md-shape-corner-full);
+  background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant);
+}
+.eq-mode-btn.active { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.eq-card > .setting-item-top { flex-wrap: wrap; gap: 8px; }
+.eq-card > .setting-item-top .setting-label-stack { flex: 1 1 180px; }
+.eq-bands[hidden] { display: none; }
+.eq-bands-10 .eq-band { min-width: 0; }
+.eq-bands-10 .eq-name, .eq-bands-10 .eq-value { font-size: calc(10.5px * var(--font-scale, 1)); }
+.eq-bands-10 { grid-template-columns: repeat(10, 1fr); gap: 2px; }
+.eq-card .eq-modes .eq-mode-btn { background: transparent; color: var(--md-sys-color-on-surface-variant); box-shadow: inset 0 0 0 1px var(--md-sys-color-outline-variant); }
+.eq-card .eq-modes .eq-mode-btn.active { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); box-shadow: none; }

@@ -365,6 +365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                           volume: typeof s.volume === 'number' ? s.volume : (typeof s.gain === 'number' ? s.gain : 1.0),
                           echo: typeof s.echo === 'number' ? s.echo : 0,
                           ...Object.fromEntries(FX_KEYS.map(k => [k, typeof s[k] === 'number' ? s[k] : 0])),
+                          eqBands: Array.from({ length: 10 }, (_, i) => (Array.isArray(s.eqBands) && typeof s.eqBands[i] === 'number' ? s.eqBands[i] : 0)),
                           eq: {
                             low: s.eq && typeof s.eq.low === 'number' ? s.eq.low : 0,
                             mid: s.eq && typeof s.eq.mid === 'number' ? s.eq.mid : 0,
@@ -377,6 +378,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const rawCustomPresets = readStored('devsize_custom_presets', []);
   const normalizedCustomPresets = rawCustomPresets.map(normalizePreset).filter(Boolean);
 
+  const soundMemory = {
+    on: false,
+    timer: 0,
+    save() {
+      clearTimeout(soundMemory.timer);
+      soundMemory.timer = setTimeout(() => {
+        try {
+          localStorage.setItem('riffle_sound', JSON.stringify({ audio: state.audioSettings, preset: state.activePresetId, hq: state.hqEnabled, hqSettings: state.hqSettings }));
+        } catch (e) {}
+      }, 400);
+    }
+  };
   let jukebox = null;
   let jukeboxBusy = false;
   let jukeboxView = null;
@@ -429,7 +442,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                           volume: 1.0,
                           echo: 0,
                           ...Object.fromEntries(FX_KEYS.map(k => [k, 0])),
-                          eq: { low: 0, mid: 0, high: 0 }
+                          eq: { low: 0, mid: 0, high: 0 },
+                          eqBands: new Array(10).fill(0)
                           },
                           hqEnabled: false,
                           hqSettings: {
@@ -2028,6 +2042,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   function applyAudioSettings() {
+    if (soundMemory.on) soundMemory.save();
     audioEngine.setAudioSettings(state.audioSettings);
     audioEngine.setVolume(state.volume, state.isMuted);
     audioEngine.applySettings(el.nativeAudio);
@@ -2342,6 +2357,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (el.sliderEcho) el.sliderEcho.value = s.echo;
     if (el.valEcho) el.valEcho.textContent = `${s.echo}%`;
+
+    (Array.isArray(s.eqBands) ? s.eqBands : []).forEach((v, i) => {
+      const db = Math.round(v || 0);
+      const slider = document.getElementById(`slider-eqb-${i}`);
+      const label = document.getElementById(`val-eqb-${i}`);
+      if (slider) slider.value = db;
+      if (label) label.textContent = `${db > 0 ? '+' : ''}${db}`;
+    });
 
     FX_KEYS.forEach(k => {
       const v = Math.round(s[k] || 0);
@@ -3572,7 +3595,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cur = {};
       for (const key in to) {
         if (to[key] && typeof to[key] === 'object') {
-          cur[key] = {};
+          cur[key] = Array.isArray(to[key]) ? [] : {};
           for (const sub in to[key]) cur[key][sub] = mix(from[key] && from[key][sub], to[key][sub], k);
         } else {
           cur[key] = mix(from[key], to[key], k);
@@ -6136,7 +6159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnResetAudio.addEventListener('click', () => {
       cancelAnimationFrame(presetGlide);
       state.activePresetId = 'p_default';
-      state.audioSettings = { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0, ...Object.fromEntries(FX_KEYS.map(k => [k, 0])), eq: { low: 0, mid: 0, high: 0 } };
+      state.audioSettings = { speed: 1.0, speedPitch: 1.0, pitch: 0, reverb: 0, distortion: 0, volume: 1.0, echo: 0, ...Object.fromEntries(FX_KEYS.map(k => [k, 0])), eq: { low: 0, mid: 0, high: 0 }, eqBands: new Array(10).fill(0) };
       // reset also turns HQ off and puts its sliders back
       state.hqEnabled = false;
       state.hqSettings = Object.assign({}, state.hqSettings, { preset: 'studio', vocal: 0, air: 0, bass: 0 });
@@ -8162,6 +8185,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     slider.addEventListener('input', () => set(parseInt(slider.value, 10) || 0));
     slider.addEventListener('dblclick', () => set(0));
   });
+  // ten octave bands, laid out like the three quick ones
+  const EQ_LABELS = ['32', '64', '125', '250', '500', '1k', '2k', '4k', '8k', '16k'];
+  const eq10 = document.getElementById('eq-bands-10');
+  if (eq10) {
+    EQ_LABELS.forEach((label, i) => {
+      const band = document.createElement('label');
+      band.className = 'eq-band';
+      band.innerHTML = `<span class="eq-value" id="val-eqb-${i}">0</span><span class="eq-slot"><input type="range" class="pill-range eq-slider" id="slider-eqb-${i}" min="-12" max="12" step="1" value="0" aria-label="${label} Hz"></span><span class="eq-name">${label}</span>`;
+      eq10.appendChild(band);
+      const slider = band.querySelector('input');
+      const set = (db) => {
+        initAudioContext();
+        cancelAnimationFrame(presetGlide);
+        const bands = Array.isArray(state.audioSettings.eqBands) ? state.audioSettings.eqBands.slice() : new Array(10).fill(0);
+        bands[i] = db;
+        state.audioSettings.eqBands = bands;
+        state.activePresetId = null;
+        syncSettingsSlidersToState();
+        applyAudioSettings();
+        renderPresets();
+      };
+      slider.addEventListener('input', () => set(parseInt(slider.value, 10) || 0));
+      slider.addEventListener('dblclick', () => set(0));
+    });
+  }
+  const showEqMode = (mode) => {
+    document.querySelectorAll('.eq-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.eqMode === mode));
+    const simple = document.getElementById('eq-bands-3');
+    if (simple) simple.hidden = mode !== 'simple';
+    if (eq10) eq10.hidden = mode !== 'detailed';
+    try { localStorage.setItem('riffle_eq_mode', mode); } catch (e) {}
+  };
+  document.querySelectorAll('.eq-mode-btn').forEach(b => b.addEventListener('click', () => showEqMode(b.dataset.eqMode)));
+  showEqMode(localStorage.getItem('riffle_eq_mode') === 'detailed' ? 'detailed' : 'simple');
+  const btnFlattenEq = document.getElementById('btn-flatten-eq');
+  if (btnFlattenEq) btnFlattenEq.addEventListener('click', () => {
+    initAudioContext();
+    cancelAnimationFrame(presetGlide);
+    state.audioSettings.eq = { low: 0, mid: 0, high: 0 };
+    state.audioSettings.eqBands = new Array(10).fill(0);
+    state.activePresetId = null;
+    syncSettingsSlidersToState();
+    applyAudioSettings();
+    renderPresets();
+  });
+
   bindLocalSwitch('btn-smooth-presets', 'riffle_smooth_presets', true, () => {});
 
   // ---- lyrics: focus, translation, karaoke on the whole screen ---------------------------------
@@ -8731,6 +8800,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       apply(next, true);
     });
   }
+
+  // off by default: effects quietly coming back on the next start would be confusing
+  bindLocalSwitch('btn-remember-sound', 'riffle_remember_sound', false, (on, byUser) => {
+    soundMemory.on = on;
+    if (!on) { try { localStorage.removeItem('riffle_sound'); } catch (e) {} return; }
+    if (byUser) {
+      soundMemory.save();
+      showToast(tr('Effects now stay on after a restart. Use Reset in Audio effects to clear them'), 'info');
+      return;
+    }
+    const saved = readStored('riffle_sound', null);
+    if (!saved || !saved.audio) return;
+    const restored = normalizePreset({ id: 'restored', name: 'restored', settings: saved.audio });
+    if (restored) state.audioSettings = restored.settings;
+    state.activePresetId = saved.preset || null;
+    if (saved.hqSettings) Object.assign(state.hqSettings, saved.hqSettings);
+    state.hqEnabled = Boolean(saved.hq);
+    updateHqRouting();
+    applyHqSettings();
+    ['Vocal', 'Air', 'Bass'].forEach(k => {
+      const v = state.hqSettings[k.toLowerCase()] || 0;
+      if (el[`sliderHq${k}`]) el[`sliderHq${k}`].value = v;
+      if (el[`valHq${k}`]) el[`valHq${k}`].textContent = `${v}%`;
+    });
+    if (el.hqPresetChips) el.hqPresetChips.forEach(c => c.classList.toggle('active', c.dataset.preset === state.hqSettings.preset));
+    syncSettingsSlidersToState();
+    applyAudioSettings();
+    renderPresets();
+  });
+  if (el.audioSettingsModal) el.audioSettingsModal.addEventListener('click', () => { if (soundMemory.on) setTimeout(soundMemory.save, 0); });
 
   bindLocalSwitch('btn-no-hand-cursor', 'riffle_arrow_cursor', false, (on) => document.body.classList.toggle('arrow-cursor', on));
 

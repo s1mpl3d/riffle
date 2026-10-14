@@ -864,6 +864,16 @@
             <div class="setting-item">
               <div class="setting-item-top" style="align-items: center;">
                 <div class="setting-label-stack">
+                  <span class="setting-name">Remember audio effects</span>
+                  <span class="setting-desc">Effects, equalizer, HQ and the preset stay as you left them after Riffle restarts</span>
+                </div>
+                <button class="effect-switch-btn" id="btn-remember-sound"><span class="thumb"></span></button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
                   <span class="setting-name">Glide between audio presets</span>
                   <span class="setting-desc">Effects slide to the new preset instead of jumping</span>
                 </div>
@@ -1711,10 +1721,18 @@
 
         <div class="setting-item eq-card">
           <div class="setting-item-top">
-            <span class="setting-name">Equalizer</span>
-            <span class="setting-desc">Double-click a band to flatten it</span>
+            <div class="setting-label-stack">
+              <span class="setting-name">Equalizer</span>
+              <span class="setting-desc">Double-click a band to flatten it</span>
+            </div>
+            <div class="eq-modes" role="tablist">
+              <button class="eq-mode-btn active" data-eq-mode="simple" type="button">Simple</button>
+              <button class="eq-mode-btn" data-eq-mode="detailed" type="button">10 bands</button>
+              <button class="btn-text-pill" id="btn-flatten-eq" type="button">Flatten</button>
+            </div>
           </div>
-          <div class="eq-bands">
+          <div class="eq-bands eq-bands-10" id="eq-bands-10" hidden></div>
+          <div class="eq-bands" id="eq-bands-3">
             <label class="eq-band">
               <span class="eq-value" id="val-eq-low">0 dB</span>
               <span class="eq-slot"><input type="range" class="pill-range eq-slider" id="slider-eq-low" min="-12" max="12" step="1" value="0" aria-label="Bass"></span>

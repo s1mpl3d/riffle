@@ -62,7 +62,8 @@
         tremolo: 0,
         pan8d: 0,
         chorus: 0,
-        eq: { low: 0, mid: 0, high: 0 }
+        eq: { low: 0, mid: 0, high: 0 },
+        eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       };
       this.isMuted = false;
       this.volume = 0.85;
@@ -225,7 +226,7 @@
           this.convolverNode.connect(this.reverbGain);
           this.reverbGain.connect(this.masterGain);
 
-          this.eqNodes = this._buildEq(this.ctx, this.audioSettings.eq);
+          this.eqNodes = this._buildEq(this.ctx, this.audioSettings.eq, this.audioSettings.eqBands);
           this.postFx = this._buildPostFx(this.ctx);
           this.masterGain.connect(this.postFx.input);
           this.postFx.output.connect(this.eqNodes.input);
@@ -302,7 +303,8 @@
 
 
     // low shelf, presence peak and high shelf; gains in dB, kept within ±12
-    _buildEq(ctx, eq) {
+    // three quick bands (bass, mids, treble), then ten octave bands for finer work
+    _buildEq(ctx, eq, eqBands) {
       const band = (type, freq, q) => {
         const f = ctx.createBiquadFilter();
         f.type = type;
@@ -315,8 +317,10 @@
       const high = band('highshelf', 6500);
       low.connect(mid);
       mid.connect(high);
-      const nodes = { input: low, output: high, low, mid, high };
-      this._setEqGains(nodes, eq, ctx, false);
+      const bands = RiffleAudioEngine.EQ_FREQS.map((f, i, all) => band(i === 0 ? 'lowshelf' : i === all.length - 1 ? 'highshelf' : 'peaking', f, 1.1));
+      bands.reduce((prev, b) => { prev.connect(b); return b; }, high);
+      const nodes = { input: low, output: bands[bands.length - 1], low, mid, high, bands };
+      this._setEqGains(nodes, eq, ctx, false, eqBands);
       return nodes;
     }
 
@@ -402,14 +406,15 @@
       return curve;
     }
 
-    _setEqGains(nodes, eq, ctx, smooth = true) {
+    _setEqGains(nodes, eq, ctx, smooth = true, eqBands = null) {
       if (!nodes) return;
       const db = (v) => Math.max(-12, Math.min(12, Number(v) || 0));
-      ['low', 'mid', 'high'].forEach(k => {
-        const target = db(eq && eq[k]);
-        if (smooth && ctx) nodes[k].gain.setTargetAtTime(target, ctx.currentTime, 0.04);
-        else nodes[k].gain.value = target;
-      });
+      const set = (node, target) => {
+        if (smooth && ctx) node.gain.setTargetAtTime(target, ctx.currentTime, 0.04);
+        else node.gain.value = target;
+      };
+      ['low', 'mid', 'high'].forEach(k => set(nodes[k], db(eq && eq[k])));
+      (nodes.bands || []).forEach((node, i) => set(node, db(Array.isArray(eqBands) ? eqBands[i] : 0)));
     }
 
     setAudioSettings(settings) {
@@ -441,7 +446,7 @@
         }
       }
 
-      if (this.eqNodes) this._setEqGains(this.eqNodes, s.eq, this.ctx, true);
+      if (this.eqNodes) this._setEqGains(this.eqNodes, s.eq, this.ctx, true, s.eqBands);
       if (this.postFx) this.postFx.update(s, true);
 
       if (this.reverbGain) this.reverbGain.gain.value = s.reverb / 100;
@@ -476,7 +481,8 @@
       return s.speed !== 1.0 || s.speedPitch !== 1.0 || s.pitch !== 0 ||
         s.reverb !== 0 || s.distortion !== 0 || s.volume !== 1.0 || s.echo !== 0 ||
         Boolean(s.lowpass || s.highpass || s.bitcrush || s.tremolo || s.pan8d || s.chorus) ||
-        Boolean(s.eq && (s.eq.low || s.eq.mid || s.eq.high));
+        Boolean(s.eq && (s.eq.low || s.eq.mid || s.eq.high)) ||
+        Boolean(Array.isArray(s.eqBands) && s.eqBands.some(v => v));
     }
 
 
@@ -649,7 +655,7 @@
         air.connect(sat);
         sat.connect(limiter);
         limiter.connect(master);
-        const eqHq = this._buildEq(offline, s.eq);
+        const eqHq = this._buildEq(offline, s.eq, s.eqBands);
         const postHq = this._buildPostFx(offline);
         postHq.update(s, false);
         master.connect(postHq.input);
@@ -706,7 +712,7 @@
         conv.connect(revGain);
         revGain.connect(master);
 
-        const eqStd = this._buildEq(offline, s.eq);
+        const eqStd = this._buildEq(offline, s.eq, s.eqBands);
         const postStd = this._buildPostFx(offline);
         postStd.update(s, false);
         master.connect(postStd.input);
@@ -773,6 +779,7 @@
     }
   }
 
+  RiffleAudioEngine.EQ_FREQS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
   global.RiffleAudioEngine = RiffleAudioEngine;
 
 })(typeof window !== 'undefined' ? window : globalThis);
