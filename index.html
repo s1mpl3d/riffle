@@ -320,6 +320,13 @@
           </div>
           <button class="btn-outline-pill" id="btn-open-saved-folder">Open folder</button>
         </div>
+        <div class="download-queue" id="download-queue" hidden>
+          <div class="download-queue-head">
+            <span class="download-queue-title">Downloads</span>
+            <button class="btn-text-pill" id="btn-clear-downloads" type="button">Clear finished</button>
+          </div>
+          <div class="download-queue-list" id="download-queue-list"></div>
+        </div>
         <div class="view-search-box" id="saved-search-box">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
           <input type="text" class="view-search-input" id="saved-search-input" placeholder="Search saved songs..." autocomplete="off">
@@ -389,6 +396,9 @@
             <button class="btn-pill-primary" id="btn-play-playlist">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
               <span>Play all</span>
+            </button>
+            <button class="btn-icon-pill" id="btn-download-playlist" title="Download every song in this playlist" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </button>
             <button class="btn-icon-pill delete-btn" id="btn-delete-playlist" title="Delete playlist">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -1904,6 +1914,63 @@
       <div class="dialog-actions">
         <button class="btn-outline-pill" id="btn-cancel-delete-playlist">Cancel</button>
         <button class="btn-pill-primary" id="btn-confirm-delete-playlist">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="playlist-download-modal">
+    <div class="dialog-card playlist-download-card">
+      <h3 id="pd-title">Download playlist</h3>
+      <p class="dialog-hint" id="pd-hint"></p>
+      <div class="download-section">
+        <span class="download-section-label">Audio format</span>
+        <div class="format-chips-grid" id="pd-format-grid">
+          <button class="format-chip active" data-format="mp3">
+            <span class="format-chip-name">MP3</span>
+            <span class="chip-tag">Universal</span>
+          </button>
+          <button class="format-chip" data-format="flac">
+            <span class="format-chip-name">FLAC</span>
+            <span class="chip-tag">Lossless</span>
+          </button>
+          <button class="format-chip" data-format="m4a">
+            <span class="format-chip-name">M4A</span>
+            <span class="chip-tag">AAC</span>
+          </button>
+          <button class="format-chip" data-format="opus">
+            <span class="format-chip-name">Opus</span>
+            <span class="chip-tag">Modern</span>
+          </button>
+          <button class="format-chip" data-format="wav">
+            <span class="format-chip-name">WAV</span>
+            <span class="chip-tag">PCM</span>
+          </button>
+        </div>
+      </div>
+      <div class="download-section">
+        <span class="download-section-label">Bitrate quality</span>
+        <div class="quality-chips-grid" id="pd-quality-grid">
+          <button class="quality-chip active" data-quality="0">
+            <span class="quality-chip-name">320 kbps</span>
+            <span class="chip-tag">Studio</span>
+          </button>
+          <button class="quality-chip" data-quality="2">
+            <span class="quality-chip-name">256 kbps</span>
+            <span class="chip-tag">High quality</span>
+          </button>
+          <button class="quality-chip" data-quality="4">
+            <span class="quality-chip-name">192 kbps</span>
+            <span class="chip-tag">Standard</span>
+          </button>
+          <button class="quality-chip" data-quality="5">
+            <span class="quality-chip-name">128 kbps</span>
+            <span class="chip-tag">Compact</span>
+          </button>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn-outline-pill" id="btn-cancel-pd" type="button">Cancel</button>
+        <button class="btn-pill-primary" id="btn-confirm-pd" type="button">Download all</button>
       </div>
     </div>
   </div>

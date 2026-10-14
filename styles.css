@@ -5504,3 +5504,27 @@ html.flat-ui #ui-shadows, body.perf #ui-shadows, body.tv-open #ui-shadows { disp
 .setting-path:empty { display: none; }
 .setting-actions { display: flex; gap: 8px; flex: none; }
 .setting-actions [hidden] { display: none; }
+
+/* download queue on top of Saved songs */
+.download-queue { margin: 0 0 16px; padding: 12px 14px; border-radius: 20px; background: var(--md-sys-color-surface-container); display: flex; flex-direction: column; gap: 8px; }
+.download-queue[hidden] { display: none; }
+.download-queue-head { display: flex; align-items: center; justify-content: space-between; }
+.download-queue-title { font-weight: 600; font-size: calc(13px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface); }
+.download-queue-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.dq-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 6px 4px; }
+.dq-name { min-width: 0; font-size: calc(13px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dq-name span { color: var(--md-sys-color-on-surface-variant); }
+.dq-meta { font-size: calc(11.5px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface-variant); font-variant-numeric: tabular-nums; }
+.dq-row.is-error .dq-meta { color: var(--md-sys-color-error, #ffb4ab); }
+.dq-row.is-done .dq-meta { color: var(--md-sys-color-primary); }
+.dq-bar { grid-column: 1 / -1; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--md-sys-color-outline-variant) 55%, transparent); overflow: hidden; }
+.dq-bar > div { height: 100%; width: 0; background: var(--md-sys-color-primary); border-radius: inherit; transition: width 400ms ease; }
+.dq-row.is-converting .dq-bar > div { animation: dq-pulse 1.2s ease-in-out infinite; }
+@keyframes dq-pulse { 50% { opacity: 0.4; } }
+.dq-cancel { width: 26px; height: 26px; }
+.nav-item.is-downloading .nav-indicator::after {
+  content: ''; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--md-sys-color-primary); animation: dq-pulse 1.2s ease-in-out infinite;
+}
+body.perf .dq-row.is-converting .dq-bar > div, body.perf .nav-item.is-downloading .nav-indicator::after { animation: none; }
+.playlist-download-card { width: 520px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: 12px; }

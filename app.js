@@ -6396,9 +6396,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     openModal(el.downloadModal);
   }
 
-  document.querySelectorAll('.format-chip').forEach(chip => {
+  document.querySelectorAll('#format-chips-grid .format-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      document.querySelectorAll('.format-chip').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('#format-chips-grid .format-chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       selectedFormat = chip.dataset.format;
       updateDownloadBtnLabel();
@@ -6406,9 +6406,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  document.querySelectorAll('.quality-chip').forEach(chip => {
+  document.querySelectorAll('#quality-chips-grid .quality-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      document.querySelectorAll('.quality-chip').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('#quality-chips-grid .quality-chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       selectedQuality = chip.dataset.quality;
     });
@@ -6436,38 +6436,157 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // the server downloads one song at a time; this follows the queue while anything is active
+  const downloads = (() => {
+    const box = document.getElementById('download-queue');
+    const list = document.getElementById('download-queue-list');
+    const navSaved = document.getElementById('nav-saved');
+    let timer = null;
+    const known = new Map();
+    const api = (p, opts) => fetch(`http://127.0.0.1:${state.serverPort}/api/${p}`, opts).then(r => r.json());
+
+    const metaText = (j) => {
+      if (j.status === 'queued') return tr('Waiting');
+      if (j.status === 'converting') return tr('Converting...');
+      if (j.status === 'done') return tr('Saved');
+      if (j.status === 'canceled') return tr('Canceled');
+      if (j.status === 'error') return j.error ? tr('Failed: {error}', { error: j.error }) : tr('Failed');
+      return [`${j.progress}%`, j.speed, j.eta && tr('{eta} left', { eta: j.eta })].filter(Boolean).join(' · ');
+    };
+
+    function render(jobs) {
+      const visible = jobs.slice().sort((a, b) => b.createdAt - a.createdAt);
+      if (box) box.hidden = !visible.length;
+      const active = jobs.some(j => ['queued', 'downloading', 'converting'].includes(j.status));
+      if (navSaved) navSaved.classList.toggle('is-downloading', active);
+      if (!list) return active;
+      list.textContent = '';
+      for (const j of visible) {
+        const row = document.createElement('div');
+        row.className = `dq-row is-${j.status}`;
+        const name = document.createElement('div');
+        name.className = 'dq-name';
+        name.textContent = `${j.title} `;
+        const by = document.createElement('span');
+        by.textContent = `· ${j.artist} · .${j.format}`;
+        name.appendChild(by);
+        const right = document.createElement('div');
+        right.style.display = 'flex';
+        right.style.alignItems = 'center';
+        right.style.gap = '8px';
+        const meta = document.createElement('span');
+        meta.className = 'dq-meta';
+        meta.textContent = metaText(j);
+        right.appendChild(meta);
+        if (['queued', 'downloading', 'converting'].includes(j.status)) {
+          const cancel = document.createElement('button');
+          cancel.className = 'btn-icon-pill dq-cancel';
+          cancel.title = tr('Cancel');
+          cancel.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+          cancel.addEventListener('click', () => api(`download-cancel?id=${encodeURIComponent(j.id)}`, { method: 'POST' }).then(poll));
+          right.appendChild(cancel);
+        }
+        row.append(name, right);
+        if (j.status === 'downloading' || j.status === 'converting') {
+          const bar = document.createElement('div');
+          bar.className = 'dq-bar';
+          const fill = document.createElement('div');
+          fill.style.width = `${j.progress}%`;
+          bar.appendChild(fill);
+          row.appendChild(bar);
+        }
+        list.appendChild(row);
+      }
+      return active;
+    }
+
+    async function poll() {
+      let jobs;
+      try { jobs = (await api('download-jobs')).jobs || []; } catch (e) { return; }
+      let finished = false;
+      for (const j of jobs) {
+        const before = known.get(j.id);
+        if (before && before !== j.status) {
+          if (j.status === 'done') { finished = true; showToast(tr('Download complete: {file} is in Saved songs', { file: j.filename })); }
+          if (j.status === 'error') showToast(tr('Download failed: {error}', { error: j.error || j.title }), 'error');
+        }
+        known.set(j.id, j.status);
+      }
+      if (finished) loadSavedTracks();
+      const active = render(jobs);
+      clearTimeout(timer);
+      if (active) timer = setTimeout(poll, state.isWindowVisible ? 1000 : 4000);
+    }
+
+    async function enqueue(t, format, quality) {
+      const q = new URLSearchParams({
+        url: t.url || '', title: t.title || '', artist: t.artist || '', format, quality,
+        id: t.id || '', thumbnail: t.thumbnail || '', duration: String(t.duration || 0), platform: t.platform || state.platform || ''
+      });
+      const data = await api(`download?${q}`);
+      if (!data.success) throw new Error(data.error || tr('Failed to download'));
+      known.set(data.job.id, data.job.status);
+      poll();
+      return data.job;
+    }
+
+    if (navSaved) navSaved.addEventListener('click', () => poll());
+    const clearBtn = document.getElementById('btn-clear-downloads');
+    if (clearBtn) clearBtn.addEventListener('click', () => api('download-clear', { method: 'POST' }).then(poll));
+    poll();
+    return { enqueue, poll };
+  })();
+
+  // whole playlist: one format and bitrate for every song, skipping ones already on disk
+  (() => {
+    const modal = document.getElementById('playlist-download-modal');
+    const open = document.getElementById('btn-download-playlist');
+    if (!modal || !open) return;
+    const pick = { format: localStorage.getItem('riffle_pd_format') || 'mp3', quality: localStorage.getItem('riffle_pd_quality') || '0' };
+    let todo = [];
+    const sync = () => {
+      modal.querySelectorAll('#pd-format-grid .format-chip').forEach(c => c.classList.toggle('active', c.dataset.format === pick.format));
+      modal.querySelectorAll('#pd-quality-grid .quality-chip').forEach(c => c.classList.toggle('active', c.dataset.quality === pick.quality));
+      document.getElementById('pd-quality-grid').classList.toggle('disabled', pick.format === 'flac' || pick.format === 'wav');
+    };
+    modal.querySelectorAll('#pd-format-grid .format-chip').forEach(c => c.addEventListener('click', () => { pick.format = c.dataset.format; sync(); }));
+    modal.querySelectorAll('#pd-quality-grid .quality-chip').forEach(c => c.addEventListener('click', () => { pick.quality = c.dataset.quality; sync(); }));
+    open.addEventListener('click', () => {
+      const pl = state.playlists.find(p => p.id === state.currentPlaylistId);
+      const tracks = (pl && pl.tracks) || [];
+      todo = tracks.filter(t => t.platform !== 'local' && !findSavedTrack(t));
+      if (!tracks.length) return showToast(tr('This playlist is empty'));
+      if (!todo.length) return showToast(tr('Every song in this playlist is already saved'));
+      document.getElementById('pd-title').textContent = tr('Download "{name}"', { name: pl.name || tr('untitled') });
+      document.getElementById('pd-hint').textContent = todo.length === tracks.length
+        ? trn(todo.length, '{n} song goes to the download queue.', '{n} songs go to the download queue.')
+        : tr('{n} of {total} songs go to the download queue. The rest are already saved or are your own files.', { n: todo.length, total: tracks.length });
+      sync();
+      openModal(modal);
+    });
+    document.getElementById('btn-cancel-pd').addEventListener('click', () => closeModal(modal));
+    document.getElementById('btn-confirm-pd').addEventListener('click', async () => {
+      closeModal(modal);
+      localStorage.setItem('riffle_pd_format', pick.format);
+      localStorage.setItem('riffle_pd_quality', pick.quality);
+      let added = 0;
+      for (const t of todo) {
+        try { await downloads.enqueue(t, pick.format, pick.quality); added++; } catch (e) {}
+      }
+      showToast(trn(added, '{n} song added to downloads', '{n} songs added to downloads'));
+    });
+  })();
+
   if (el.btnConfirmDownload) {
     el.btnConfirmDownload.addEventListener('click', async () => {
       if (!trackToDownload) return;
       const t = trackToDownload;
-
-      if (el.downloadBtnText) el.downloadBtnText.textContent = tr('Downloading & converting...');
-      el.btnConfirmDownload.disabled = true;
-
-      showToast(tr('Download started: {title} (.{format})', { title: t.title, format: selectedFormat }), 'info');
-
       try {
-        const downloadUrl = `http://127.0.0.1:${state.serverPort}/api/download?url=${encodeURIComponent(t.url || '')}&title=${encodeURIComponent(t.title || '')}&artist=${encodeURIComponent(t.artist || '')}&format=${selectedFormat}&quality=${selectedQuality}&id=${encodeURIComponent(t.id || '')}&thumbnail=${encodeURIComponent(t.thumbnail || '')}&duration=${encodeURIComponent(t.duration || 0)}&platform=${encodeURIComponent(t.platform || state.platform || '')}`;
-        const res = await fetch(downloadUrl);
-        const text = await res.text();
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          throw new Error(text || tr('server error'));
-        }
-
-        if (!data.success) throw new Error(data.error || tr('Failed to download'));
-
-        showToast(tr('Download complete: {file} is in Saved songs', { file: data.filename }), 'info');
-        loadSavedTracks();
+        await downloads.enqueue(t, selectedFormat, selectedQuality);
+        showToast(tr('Added to downloads: {title}', { title: t.title }));
         if (el.downloadModal) closeModal(el.downloadModal);
       } catch (err) {
-        console.error('Download error:', err);
         showToast(tr('Download failed: {error}', { error: err.message }), 'error');
-      } finally {
-        el.btnConfirmDownload.disabled = false;
-        updateDownloadBtnLabel();
       }
     });
   }

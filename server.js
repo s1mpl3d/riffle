@@ -1716,106 +1716,145 @@ function sanitizeFilename(str) {
   .trim();
 }
 
-async function handleDownload(req, res, trackUrl, title, artist, format = 'mp3', quality = '0', meta = {}) {
-  if (!trackUrl && (!title || !artist)) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ success: false, error: 'missing track information' }));
-  }
+// downloads run one at a time from a queue the window polls while something is active
+const downloadJobs = new Map();
+let activeDownload = null;
+let downloadSeq = 0;
 
-  const cleanTitle = sanitizeFilename(title || 'untitled');
-  const cleanArtist = sanitizeFilename(artist || 'unknown artist');
+function publicJob(job) {
+  const { id, title, artist, format, status, progress, speed, eta, error, filename, createdAt } = job;
+  return { id, title, artist, format, status, progress: Math.round(progress || 0), speed, eta, error, filename, createdAt };
+}
+
+function createDownloadJob(q) {
   const validFormats = ['mp3', 'm4a', 'flac', 'opus', 'wav'];
-  const ext = validFormats.includes(format.toLowerCase()) ? format.toLowerCase() : 'mp3';
-  const outFilename = `${cleanArtist} - ${cleanTitle}.${ext}`;
-  const outPath = path.join(DOWNLOADS_DIR, outFilename);
-  const tempTemplate = path.join(DOWNLOADS_DIR, `${cleanArtist} - ${cleanTitle}.%(ext)s`);
+  const format = validFormats.includes(String(q.format || '').toLowerCase()) ? String(q.format).toLowerCase() : 'mp3';
+  const job = {
+    id: `dl${Date.now().toString(36)}${(++downloadSeq).toString(36)}`,
+    url: String(q.url || ''),
+    title: String(q.title || '') || 'untitled',
+    artist: String(q.artist || '') || 'unknown artist',
+    format,
+    quality: /^\d{1,3}$/.test(String(q.quality)) ? String(q.quality) : '0',
+    meta: { id: String(q.id || ''), thumbnail: String(q.thumbnail || ''), duration: Number(q.duration) || 0, platform: String(q.platform || '') },
+    status: 'queued', progress: 0, speed: '', eta: '', error: null, filename: null,
+    attempts: 0, createdAt: Date.now(), proc: null
+  };
+  downloadJobs.set(job.id, job);
+  // keep the list short: drop the oldest finished jobs
+  const finished = [...downloadJobs.values()].filter(j => ['done', 'error', 'canceled'].includes(j.status));
+  for (const j of finished.slice(0, Math.max(0, finished.length - 100))) downloadJobs.delete(j.id);
+  pumpDownloads();
+  return job;
+}
 
-  let targetUrl = trackUrl;
-  if (!isHttpUrl(targetUrl) || targetUrl.includes('deezer.com') || targetUrl.includes('spotify.com')) {
-    targetUrl = `ytsearch1:${cleanArtist} ${cleanTitle} official audio`;
+function pumpDownloads() {
+  if (activeDownload) return;
+  const next = [...downloadJobs.values()].find(j => j.status === 'queued');
+  if (next) runDownloadJob(next);
+}
+
+function killTree(proc) {
+  if (!proc || proc.exitCode !== null) return;
+  if (process.platform === 'win32') {
+    try { spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { windowsHide: true }); return; } catch (e) {}
   }
+  try { proc.kill('SIGKILL'); } catch (e) {}
+}
 
-  // yt-dlp leftovers for this track: partial fragments, resume state, unembedded covers
-  async function cleanupLeftovers() {
-    const prefix = `${cleanArtist} - ${cleanTitle}.`;
-    let files = [];
-    try { files = await fs.promises.readdir(DOWNLOADS_DIR); } catch (e) { return; }
-    for (const file of files) {
-      if (!file.startsWith(prefix) || file === outFilename) continue;
-      if (/\.(part|ytdl|jpg|jpeg|png|webp)$/i.test(file) || /\.part-Frag\d+/i.test(file) || /\.temp\./i.test(file)) {
-        try { await fs.promises.unlink(path.join(DOWNLOADS_DIR, file)); } catch (e) {}
-      }
-    }
+function runDownloadJob(job) {
+  activeDownload = job;
+  Object.assign(job, { status: 'downloading', progress: 0, speed: '', eta: '' });
+  const cleanTitle = sanitizeFilename(job.title);
+  const cleanArtist = sanitizeFilename(job.artist);
+  const dir = DOWNLOADS_DIR;
+  const outFilename = `${cleanArtist} - ${cleanTitle}.${job.format}`;
+  const prefix = `${cleanArtist} - ${cleanTitle}.`;
+  let target = job.url;
+  if (!isHttpUrl(target) || target.includes('deezer.com') || target.includes('spotify.com')) {
+    target = `ytsearch1:${cleanArtist} ${cleanTitle} official audio`;
   }
-
-  function recordSaved() {
-    const index = readSavedIndex();
-    index[outFilename] = {
-      id: meta.id || '',
-      title: title || cleanTitle,
-      artist: artist || cleanArtist,
-      duration: Number(meta.duration) || 0,
-      thumbnail: meta.thumbnail || '',
-      url: trackUrl || '',
-      platform: meta.platform || 'youtube',
-      savedAt: Date.now()
-    };
-    writeSavedIndex(index);
-  }
-
   const args = [
-    '--no-playlist',
-    '--no-check-certificates',
-    '--no-warnings',
-    '-x',
-    '--audio-format', ext,
-    '--audio-quality', quality.toString(),
-    '--embed-thumbnail',
-    '--add-metadata',
-    '-o', tempTemplate,
-    '--extractor-args', 'youtube:player_client=android_creator,android,web',
-    '--', targetUrl
+    '--no-playlist', '--no-check-certificates', '--no-warnings', '--newline',
+    '--progress-template', 'download:RFPROG %(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s',
+    '-x', '--audio-format', job.format, '--audio-quality', job.quality
   ];
+  // the second try skips the cover and tags, which is what usually breaks
+  if (job.attempts === 0) args.push('--embed-thumbnail', '--add-metadata');
+  args.push('-o', path.join(dir, `${cleanArtist} - ${cleanTitle}.%(ext)s`));
+  args.push('--extractor-args', 'youtube:player_client=android_creator,android,web', '--', target);
 
-  try {
-    await executeYtDlp(args, DOWNLOAD_TIMEOUT_MS);
-    recordSaved();
-    await cleanupLeftovers();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      filename: outFilename,
-      path: outPath,
-      directory: DOWNLOADS_DIR
-    }));
-  } catch (err) {
-    try {
-      const fallbackArgs = [
-        '--no-playlist',
-        '--no-check-certificates',
-        '--no-warnings',
-        '-x',
-        '--audio-format', ext,
-        '--audio-quality', quality.toString(),
-        '-o', tempTemplate,
-        '--', targetUrl
-      ];
-      await executeYtDlp(fallbackArgs, DOWNLOAD_TIMEOUT_MS);
-      recordSaved();
-      await cleanupLeftovers();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        filename: outFilename,
-        path: outPath,
-        directory: DOWNLOADS_DIR
-      }));
-    } catch (e2) {
-      await cleanupLeftovers();
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: e2.message || err.message }));
+  const existedBefore = fs.existsSync(path.join(dir, outFilename));
+  const cleanup = async () => {
+    const files = await fs.promises.readdir(dir).catch(() => []);
+    for (const file of files) {
+      if (!file.startsWith(prefix)) continue;
+      const partial = /\.(part|ytdl|jpg|jpeg|png|webp)$/i.test(file) || /\.part-Frag\d+/i.test(file) || /\.temp\./i.test(file);
+      const canceledOutput = job.status === 'canceled' && file === outFilename && !existedBefore;
+      if (partial || canceledOutput) await fs.promises.unlink(path.join(dir, file)).catch(() => {});
     }
+  };
+
+  let cmd;
+  try { cmd = ytDlpCommand(args); } catch (e) {
+    Object.assign(job, { status: 'error', error: e.message });
+    activeDownload = null;
+    return pumpDownloads();
   }
+  const proc = spawn(cmd.bin, cmd.args, { windowsHide: true });
+  job.proc = proc;
+  const timer = setTimeout(() => killTree(proc), DOWNLOAD_TIMEOUT_MS);
+  let errText = '';
+  const onData = (chunk) => {
+    const text = chunk.toString('utf8');
+    const m = text.match(/RFPROG\s*([\d.]+)%\|([^|]*)\|([^\r\n]*)/);
+    if (m) {
+      job.progress = parseFloat(m[1]) || 0;
+      job.speed = m[2].trim() === 'Unknown' ? '' : m[2].trim();
+      job.eta = m[3].trim() === 'Unknown' ? '' : m[3].trim();
+    } else if (/\[(ExtractAudio|ffmpeg|EmbedThumbnail|Metadata)\]/.test(text) && job.status === 'downloading') {
+      job.status = 'converting';
+      job.progress = 100;
+    }
+  };
+  proc.stdout.on('data', onData);
+  proc.stderr.on('data', (c) => { errText = (errText + c.toString()).slice(-2000); onData(c); });
+  const finish = async (code) => {
+    clearTimeout(timer);
+    job.proc = null;
+    activeDownload = null;
+    if (job.status === 'canceled') {
+      await cleanup();
+    } else if (code === 0) {
+      Object.assign(job, { status: 'done', progress: 100, filename: outFilename });
+      const index = readSavedIndex();
+      index[outFilename] = {
+        id: job.meta.id, title: job.title, artist: job.artist, duration: job.meta.duration,
+        thumbnail: job.meta.thumbnail, url: job.url, platform: job.meta.platform || 'youtube', savedAt: Date.now()
+      };
+      writeSavedIndex(index);
+      await cleanup();
+    } else if (job.attempts < 1) {
+      job.attempts++;
+      job.status = 'queued';
+    } else {
+      const line = errText.split(/\r?\n/).reverse().find(l => /ERROR/.test(l));
+      Object.assign(job, { status: 'error', error: line ? line.replace(/^.*?ERROR:\s*/, '').slice(0, 200) : 'download failed' });
+      await cleanup();
+    }
+    pumpDownloads();
+  };
+  proc.on('close', finish);
+  proc.on('error', (e) => { errText = e.message; finish(-1); });
+}
+
+function cancelDownloadJob(id) {
+  const job = downloadJobs.get(id);
+  if (!job || !['queued', 'downloading', 'converting'].includes(job.status)) return false;
+  const running = !!job.proc;
+  job.status = 'canceled';
+  if (running) killTree(job.proc);
+  return true;
 }
 
 function sanitizeForLyrics(title, artist) {
@@ -2203,18 +2242,30 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (parsedUrl.pathname === '/api/download') {
-    const trackUrl = parsedUrl.query.url || '';
-    const title = parsedUrl.query.title || '';
-    const artist = parsedUrl.query.artist || '';
-    const format = parsedUrl.query.format || 'mp3';
-    const quality = parsedUrl.query.quality || '0';
-    const meta = {
-      id: parsedUrl.query.id || '',
-      thumbnail: parsedUrl.query.thumbnail || '',
-      duration: parsedUrl.query.duration || 0,
-      platform: parsedUrl.query.platform || ''
-    };
-    return handleDownload(req, res, trackUrl, title, artist, format, quality, meta);
+    const q = parsedUrl.query;
+    if (!q.url && !(q.title && q.artist)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'missing track information' }));
+    }
+    const job = createDownloadJob(q);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true, job: publicJob(job) }));
+  }
+
+  if (parsedUrl.pathname === '/api/download-jobs') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ jobs: [...downloadJobs.values()].map(publicJob) }));
+  }
+
+  if (parsedUrl.pathname === '/api/download-cancel' && req.method === 'POST') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: cancelDownloadJob(String(parsedUrl.query.id || '')) }));
+  }
+
+  if (parsedUrl.pathname === '/api/download-clear' && req.method === 'POST') {
+    for (const [id, j] of downloadJobs) if (['done', 'error', 'canceled'].includes(j.status)) downloadJobs.delete(id);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true }));
   }
 
   if (parsedUrl.pathname === '/api/saved-library') {
