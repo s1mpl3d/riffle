@@ -7,6 +7,7 @@
   const MAX_CHANCE = 0.5;
   const CHANCE_STEP = 0.09;
   const MIN_GAP = 4;
+  const MIN_DISTANCE = 16;
 
   // the <audio> element keeps playing silently as the clock the rest of the app reads
   class JukeboxPlayer {
@@ -143,7 +144,7 @@
       if (a.exit && i === a.exit.from) return a.exit.to;
       if (i >= last - 1) return a.exit ? a.exit.to : 0;
       if (this.sinceJump < MIN_GAP) return null;
-      const options = (a.branches[i] || []).filter(([, d]) => d <= this.threshold);
+      const options = (a.branches[i] || []).filter(([j, d]) => d <= this.threshold && Math.abs(j - i) >= MIN_DISTANCE);
       if (!options.length || Math.random() >= this.chance) {
         this.chance = Math.min(MAX_CHANCE, this.chance + (options.length ? CHANCE_STEP : 0));
         return null;

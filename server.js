@@ -814,14 +814,28 @@ async function jukeboxSource(id, saved) {
   return findCachedFile(id);
 }
 
-function getJukeboxAnalysis(id, saved) {
+// streamed songs are often not in the cache yet: fetch them now instead of giving up
+async function jukeboxFetch(id, trackUrl, platform) {
+  if (!trackUrl || !/^https?:\/\//.test(trackUrl)) return null;
+  await downloadTrackToDisk(trackUrl, id, platform || 'youtube', {}, true);
+  const until = Date.now() + 4 * 60 * 1000;
+  while (Date.now() < until) {
+    const file = await findCachedFile(id);
+    if (file) return file;
+    if (!downloadingSet.has(cleanTrackId(id))) return null;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return null;
+}
+
+function getJukeboxAnalysis(id, saved, trackUrl, platform) {
   const key = saved ? 'saved_' + crypto.createHash('sha1').update(saved).digest('hex').slice(0, 16) : cleanTrackId(id);
   if (jukeboxJobs.has(key)) return jukeboxJobs.get(key);
   const out = path.join(JUKEBOX_DIR, key + '.json');
   const job = (async () => {
     const cached = safeJsonParse(await fs.promises.readFile(out, 'utf8').catch(() => ''), null);
     if (cached && cached.version === jukebox.VERSION) return cached;
-    const file = await jukeboxSource(id, saved);
+    const file = (await jukeboxSource(id, saved)) || (!saved && await jukeboxFetch(id, trackUrl, platform));
     if (!file) throw new Error('not downloaded');
     const ffmpeg = resolveBinary('ffmpeg');
     if (!ffmpeg) throw new Error('ffmpeg not found');
@@ -2278,7 +2292,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(400);
       return res.end();
     }
-    getJukeboxAnalysis(id, saved).then((data) => {
+    getJukeboxAnalysis(id, saved, String(parsedUrl.query.url || ''), String(parsedUrl.query.platform || '')).then((data) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, ...data }));
     }).catch((e) => {
