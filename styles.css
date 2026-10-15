@@ -5618,3 +5618,24 @@ body.no-bar-visualizer #visualizer-container { display: none; }
 body.resizing-panel, body.resizing-panel * { cursor: col-resize !important; user-select: none !important; }
 body.resizing-panel .right-panel { transition: none !important; }
 .right-panel.hidden .panel-resize-edge { display: none; }
+
+/* first start */
+.welcome { position: fixed; inset: 0; z-index: 19000; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, var(--md-sys-color-surface, #141218) 70%, transparent); backdrop-filter: blur(12px); }
+.welcome[hidden] { display: none; }
+.welcome-card { width: 520px; max-width: 100%; max-height: calc(100vh - 48px); overflow-y: auto; padding: 28px; border-radius: 32px; background: var(--md-sys-color-surface-container); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; gap: 18px; }
+.welcome-step { display: flex; flex-direction: column; gap: 12px; }
+.welcome-step[hidden] { display: none; }
+.welcome-step h2 { margin: 0; font-size: calc(24px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface); }
+.welcome-logo { width: 64px; height: 64px; }
+.welcome-progress { display: flex; gap: 6px; }
+.welcome-progress span { flex: 1; height: 4px; border-radius: 4px; background: var(--md-sys-color-outline-variant); transition: background-color 200ms; }
+.welcome-progress span.on { background: var(--md-sys-color-primary); }
+.welcome-modes { display: flex; gap: 8px; flex-wrap: wrap; }
+.welcome-swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+.welcome-swatches .theme-swatch { width: 36px; height: 36px; }
+.welcome-switches { display: flex; flex-direction: column; gap: 4px; }
+.welcome-switch { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--md-sys-color-surface-container-high); }
+.welcome-switch .setting-label-stack { flex: 1; }
+.welcome-actions-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.welcome .dialog-actions { align-items: center; }
+.welcome [hidden] { display: none !important; }

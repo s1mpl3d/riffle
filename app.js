@@ -9098,6 +9098,104 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // ---- first start: a short tour over the real settings, shown only on a fresh install ------------
+  {
+    const box = document.getElementById('welcome');
+    const hadData = ['devsize_favorites', 'devsize_history', 'devsize_playlists', 'riffle_session'].some(k => {
+      const v = localStorage.getItem(k);
+      return v && v !== '[]' && v !== 'null';
+    });
+    if (!localStorage.getItem('riffle_welcome_done') && hadData) localStorage.setItem('riffle_welcome_done', '1');
+    if (box && !localStorage.getItem('riffle_welcome_done')) {
+      const steps = [...box.querySelectorAll('.welcome-step')];
+      const progress = document.getElementById('welcome-progress');
+      steps.forEach(() => progress.appendChild(document.createElement('span')));
+      let step = Math.min(steps.length - 1, parseInt(sessionStorage.getItem('riffle_welcome_step') || '0', 10) || 0);
+
+      // each switch here drives the matching switch in Settings, so there is only one source of truth
+      const mirror = (container, items) => items.forEach(({ id, name, desc }) => {
+        const real = document.getElementById(id);
+        if (!real || real.closest('[hidden]')) return;
+        const row = document.createElement('div');
+        row.className = 'welcome-switch';
+        row.innerHTML = '<div class="setting-label-stack"><span class="setting-name"></span><span class="setting-desc"></span></div><button class="effect-switch-btn" type="button"><span class="thumb"></span></button>';
+        row.querySelector('.setting-name').textContent = name;
+        row.querySelector('.setting-desc').textContent = desc;
+        const sw = row.querySelector('button');
+        const sync = () => sw.classList.toggle('active', real.classList.contains('active'));
+        sw.addEventListener('click', () => { real.click(); setTimeout(sync, 0); });
+        sync();
+        container.appendChild(row);
+      });
+      mirror(document.getElementById('welcome-switches'), [
+        { id: 'btn-close-to-tray', name: tr('Keep playing in the tray when closed'), desc: tr('Quit from the tray icon to really exit') },
+        { id: 'btn-autoplay', name: tr('Autoplay'), desc: tr('When the queue ends, similar songs keep playing') },
+        { id: 'btn-show-local', name: tr('Show the My files tab'), desc: tr('Your own audio files, next to the songs you stream') },
+        { id: 'btn-no-hand-cursor', name: tr('Arrow cursor everywhere'), desc: tr('Use the normal arrow instead of the hand and grab cursors') },
+        { id: 'btn-perf-mode', name: tr('Performance mode'), desc: tr('For slower computers: no visualizers, blur or moving gradients, animations at 30 FPS') }
+      ]);
+      mirror(document.getElementById('welcome-connect'), [
+        { id: 'btn-discord-rpc', name: tr('Discord status'), desc: tr('Show the song you are playing on your Discord profile') }
+      ]);
+
+      const modes = document.getElementById('welcome-modes');
+      document.querySelectorAll('.theme-mode-btn[data-theme-mode]').forEach(real => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'theme-mode-btn';
+        b.textContent = real.textContent;
+        const sync = () => modes.querySelectorAll('.theme-mode-btn').forEach((x, i) => x.classList.toggle('active', document.querySelectorAll('.theme-mode-btn[data-theme-mode]')[i].classList.contains('active')));
+        b.addEventListener('click', () => { real.click(); setTimeout(sync, 0); });
+        modes.appendChild(b);
+        setTimeout(sync, 0);
+      });
+      const swatches = document.getElementById('welcome-swatches');
+      document.querySelectorAll('.theme-swatch[data-color]').forEach(real => {
+        const b = real.cloneNode(true);
+        b.removeAttribute('id');
+        b.addEventListener('click', () => {
+          real.click();
+          swatches.querySelectorAll('.theme-swatch').forEach(x => x.classList.toggle('active', x === b));
+        });
+        swatches.appendChild(b);
+      });
+
+      const langs = [{ value: 'auto', label: tr('Same as the system') }].concat(Object.entries(window.i18n ? window.i18n.languages : {}).map(([value, label]) => ({ value, label })));
+      if (!langs.some(l => l.value === 'en')) langs.splice(1, 0, { value: 'en', label: 'English' });
+      bindDropdown('welcome-language', langs, (window.i18n && window.i18n.preference) || 'auto', (value) => {
+        window.i18n.setPreference(value);
+        sessionStorage.setItem('riffle_welcome_step', '0');
+        location.reload();
+      });
+
+      const back = document.getElementById('welcome-back');
+      const next = document.getElementById('welcome-next');
+      const show = () => {
+        steps.forEach((el, i) => { el.hidden = i !== step; });
+        [...progress.children].forEach((p, i) => p.classList.toggle('on', i <= step));
+        back.hidden = step === 0;
+        next.textContent = step === steps.length - 1 ? tr('Start listening') : tr('Next');
+        sessionStorage.setItem('riffle_welcome_step', String(step));
+      };
+      const finish = (then) => {
+        localStorage.setItem('riffle_welcome_done', '1');
+        sessionStorage.removeItem('riffle_welcome_step');
+        box.hidden = true;
+        if (then) setTimeout(then, 50);
+      };
+      back.addEventListener('click', () => { step = Math.max(0, step - 1); show(); });
+      next.addEventListener('click', () => { if (step < steps.length - 1) { step++; show(); } else finish(); });
+      document.getElementById('welcome-skip').addEventListener('click', () => finish());
+      document.getElementById('welcome-import').addEventListener('click', () => finish(() => document.getElementById('btn-open-spotify-import').click()));
+      document.getElementById('welcome-add-files').addEventListener('click', () => finish(() => {
+        switchView('local');
+        document.getElementById('btn-add-local-files').click();
+      }));
+      box.hidden = false;
+      show();
+    }
+  }
+
   // ---- top bar and other interface options ------------------------------------------------------
   {
     const nav = document.querySelector('.top-nav');

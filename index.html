@@ -1415,6 +1415,53 @@
     <div class="setting-hints"><span>Fewer</span><span>More</span></div>
   </div>
 
+  <div class="welcome" id="welcome" hidden>
+    <div class="welcome-card">
+      <div class="welcome-progress" id="welcome-progress"></div>
+
+      <section class="welcome-step" data-step="0">
+        <img class="welcome-logo" src="assets/icon.png" alt="">
+        <h2>Welcome to Riffle</h2>
+        <p class="dialog-hint">Music from YouTube, SoundCloud and your own files, with no account and no ads. A few choices and you're set.</p>
+        <label class="dialog-label">Language</label>
+        <div class="m3-dropdown" id="welcome-language">
+          <button class="m3-dropdown-trigger" type="button"><span></span><svg class="m3-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+          <div class="m3-dropdown-menu"></div>
+        </div>
+      </section>
+
+      <section class="welcome-step" data-step="1" hidden>
+        <h2>Choose your look</h2>
+        <p class="dialog-hint">A light or dark theme and an accent color. With Auto, the colors follow the album art of each song.</p>
+        <div class="welcome-modes" id="welcome-modes"></div>
+        <div class="welcome-swatches" id="welcome-swatches"></div>
+      </section>
+
+      <section class="welcome-step" data-step="2" hidden>
+        <h2>Make it yours</h2>
+        <p class="dialog-hint">Everything here can be changed later in Settings.</p>
+        <div class="welcome-switches" id="welcome-switches"></div>
+      </section>
+
+      <section class="welcome-step" data-step="3" hidden>
+        <h2>Bring your music</h2>
+        <p class="dialog-hint">Optional. You can do this whenever you like.</p>
+        <div class="welcome-switches" id="welcome-connect"></div>
+        <div class="welcome-actions-row">
+          <button class="btn-tonal-mini" id="welcome-import" type="button">Import a playlist</button>
+          <button class="btn-tonal-mini" id="welcome-add-files" type="button">Add your own files</button>
+        </div>
+      </section>
+
+      <div class="dialog-actions">
+        <button class="btn-text-pill" id="welcome-skip" type="button">Skip</button>
+        <span style="flex: 1"></span>
+        <button class="btn-outline-pill" id="welcome-back" type="button">Back</button>
+        <button class="btn-pill-primary" id="welcome-next" type="button">Next</button>
+      </div>
+    </div>
+  </div>
+
   <div class="css-editor" id="css-editor" hidden>
     <div class="css-editor-bar">
       <span class="css-editor-title">Your CSS</span>
