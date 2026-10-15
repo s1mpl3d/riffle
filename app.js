@@ -2564,6 +2564,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     return getTrackCanonicalId(a) === getTrackCanonicalId(b);
   }
 
+  const matchKey = (s) => String(s || '').toLowerCase()
+    .replace(/[([](?:feat|ft)\.?\s[^)\]]*[)\]]/g, '')
+    .replace(/\s+-\s+.*remaster.*$|[([][^)\]]*remaster[^)\]]*[)\]]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+  const firstArtist = (s) => matchKey(String(s || '').split(/,|&|\/|\bfeat\.?\s|\bft\.?\s/i)[0]);
+
+  // an imported song only takes a YouTube Music result whose title, artist and length agree with it
+  function bestImportMatch(track, songs) {
+    const title = matchKey(track.title);
+    const artist = /^unknown artist$/i.test(track.artist || '') ? '' : firstArtist(track.artist);
+    const length = track.duration > 0 ? track.duration : 0;
+    let best = null, bestScore = -Infinity;
+    for (const song of songs) {
+      const songTitle = matchKey(song.title);
+      if (!title || !songTitle || !(songTitle.includes(title) || title.includes(songTitle))) continue;
+      const songArtist = firstArtist(song.artist);
+      if (artist && !(matchKey(song.artist).includes(artist) || (songArtist && artist.includes(songArtist)))) continue;
+      const off = length && song.duration ? Math.abs(song.duration - length) : 0;
+      if (off > Math.max(10, length * 0.08)) continue;
+      const score = (songTitle === title ? 1000 : 100) + (songArtist === artist ? 50 : 0) - Math.min(off, 50);
+      if (score > bestScore) { bestScore = score; best = song; }
+    }
+    return best;
+  }
+
   async function playTrack(track, queueList = null, startIndex = -1, context = null) {
     stopJukebox();
     if (!track || !el.nativeAudio) return;
@@ -2679,11 +2704,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!data && track.searchQuery) {
         try {
-          const searchRes = await fetch(`http://127.0.0.1:${state.serverPort}/api/search?q=${encodeURIComponent(track.searchQuery)}&platform=youtube&limit=1`, { signal });
-          const sData = await searchRes.json();
-          if (sData.success && sData.tracks && sData.tracks[0]) {
-            resolvedUrl = sData.tracks[0].url;
-            resolvedId = sData.tracks[0].id;
+          const find = async (q, platform, limit) => {
+            const r = await (await fetch(`http://127.0.0.1:${state.serverPort}/api/search?q=${encodeURIComponent(q)}&platform=${platform}&limit=${limit}`, { signal })).json();
+            return r.success && r.tracks ? r.tracks : [];
+          };
+          const songs = await find(`${String(track.artist || '').split(',')[0]} ${track.title || ''}`.trim(), 'ytmusic', 10).catch(() => []);
+          const pick = bestImportMatch(track, songs) || (await find(track.searchQuery, 'youtube', 1))[0];
+          if (pick) {
+            resolvedUrl = pick.url;
+            resolvedId = pick.id;
             state.currentTrack.id = resolvedId;
             state.currentTrack.url = resolvedUrl;
 
