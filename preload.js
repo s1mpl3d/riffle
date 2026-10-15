@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setThemeEnabled: (id, on) => ipcRenderer.send('themes-set-enabled', id, on),
   removeTheme: (id) => ipcRenderer.send('themes-remove', id),
   storageInfo: () => ipcRenderer.invoke('storage-info'),
+  launcherInfo: () => ipcRenderer.invoke('launcher-info'),
+  installLauncher: () => ipcRenderer.invoke('launcher-install'),
   pickFolder: (current) => ipcRenderer.invoke('pick-folder', current),
   setDataDir: (payload) => ipcRenderer.invoke('set-data-dir', payload),
   setDownloadDir: (payload) => ipcRenderer.invoke('set-download-dir', payload),

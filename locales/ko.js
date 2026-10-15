@@ -741,5 +741,9 @@ window.RIFFLE_LOCALE = {
   "Names and icons": "이름과 아이콘",
   "Icons only": "아이콘만",
   "Hidden": "숨김",
-  "Applies after Riffle restarts": "Riffle을 다시 시작한 뒤 적용됩니다"
+  "Applies after Riffle restarts": "Riffle을 다시 시작한 뒤 적용됩니다",
+  "Applications menu": "애플리케이션 메뉴",
+  "Add Riffle with its icon so you can open it like any other app": "Riffle을 아이콘과 함께 추가해 다른 앱처럼 열 수 있게 합니다",
+  "Added": "추가됨",
+  "Could not add Riffle to the applications menu": "Riffle을 애플리케이션 메뉴에 추가하지 못했습니다"
 };

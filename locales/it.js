@@ -741,5 +741,9 @@ window.RIFFLE_LOCALE = {
   "Names and icons": "Nomi e icone",
   "Icons only": "Solo icone",
   "Hidden": "Nascosti",
-  "Applies after Riffle restarts": "Vale dopo il riavvio di Riffle"
+  "Applies after Riffle restarts": "Vale dopo il riavvio di Riffle",
+  "Applications menu": "Menu delle applicazioni",
+  "Add Riffle with its icon so you can open it like any other app": "Aggiunge Riffle con la sua icona per aprirlo come qualsiasi altra app",
+  "Added": "Aggiunto",
+  "Could not add Riffle to the applications menu": "Impossibile aggiungere Riffle al menu delle applicazioni"
 };

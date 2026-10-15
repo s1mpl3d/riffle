@@ -9314,6 +9314,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
   }
+  {
+    const row = document.getElementById('setting-launcher');
+    const btn = document.getElementById('btn-install-launcher');
+    const api = window.electronAPI;
+    const added = () => { btn.textContent = tr('Added'); btn.disabled = true; };
+    if (row && btn && api && api.launcherInfo) {
+      api.launcherInfo().then(info => {
+        row.hidden = !info.canInstall;
+        if (info.installed) added();
+      }).catch(() => {});
+      btn.addEventListener('click', async () => {
+        if (await api.installLauncher()) added();
+        else showToast(tr('Could not add Riffle to the applications menu'), 'error');
+      });
+    }
+  }
 
   bindLocalSwitch('btn-no-hand-cursor', 'riffle_arrow_cursor', false, (on) => document.body.classList.toggle('arrow-cursor', on));
 

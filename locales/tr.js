@@ -741,5 +741,9 @@ window.RIFFLE_LOCALE = {
   "Names and icons": "Adlar ve simgeler",
   "Icons only": "Yalnızca simgeler",
   "Hidden": "Gizli",
-  "Applies after Riffle restarts": "Riffle yeniden başlayınca geçerli olur"
+  "Applies after Riffle restarts": "Riffle yeniden başlayınca geçerli olur",
+  "Applications menu": "Uygulama menüsü",
+  "Add Riffle with its icon so you can open it like any other app": "Riffle'ı simgesiyle ekler, böylece diğer uygulamalar gibi açabilirsiniz",
+  "Added": "Eklendi",
+  "Could not add Riffle to the applications menu": "Riffle uygulama menüsüne eklenemedi"
 };

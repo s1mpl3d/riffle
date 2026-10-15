@@ -484,6 +484,8 @@ function runGUI() {
     });
 
       ipcMain.handle('get-server-port', () => serverPort);
+      ipcMain.handle('launcher-info', () => require('./launcher').launcherInfo());
+      ipcMain.handle('launcher-install', () => require('./launcher').installLauncher());
 
       // wallpapers, banners and covers are referenced where they are on disk, not copied
       const MEDIA_FILTERS = {

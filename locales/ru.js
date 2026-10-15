@@ -743,5 +743,9 @@ window.RIFFLE_LOCALE = {
   "Names and icons": "Названия и значки",
   "Icons only": "Только значки",
   "Hidden": "Скрыты",
-  "Applies after Riffle restarts": "Применится после перезапуска Riffle"
+  "Applies after Riffle restarts": "Применится после перезапуска Riffle",
+  "Applications menu": "Меню приложений",
+  "Add Riffle with its icon so you can open it like any other app": "Добавляет Riffle со значком, чтобы открывать его как любое другое приложение",
+  "Added": "Добавлено",
+  "Could not add Riffle to the applications menu": "Не удалось добавить Riffle в меню приложений"
 };

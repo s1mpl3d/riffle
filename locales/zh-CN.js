@@ -741,5 +741,9 @@ window.RIFFLE_LOCALE = {
   "Names and icons": "名称和图标",
   "Icons only": "仅图标",
   "Hidden": "隐藏",
-  "Applies after Riffle restarts": "Riffle 重启后生效"
+  "Applies after Riffle restarts": "Riffle 重启后生效",
+  "Applications menu": "应用程序菜单",
+  "Add Riffle with its icon so you can open it like any other app": "添加带图标的 Riffle，像其他应用一样打开",
+  "Added": "已添加",
+  "Could not add Riffle to the applications menu": "无法将 Riffle 添加到应用程序菜单"
 };

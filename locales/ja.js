@@ -741,5 +741,9 @@ window.RIFFLE_LOCALE = {
   "Names and icons": "名前とアイコン",
   "Icons only": "アイコンのみ",
   "Hidden": "非表示",
-  "Applies after Riffle restarts": "Riffle の再起動後に反映されます"
+  "Applies after Riffle restarts": "Riffle の再起動後に反映されます",
+  "Applications menu": "アプリケーションメニュー",
+  "Add Riffle with its icon so you can open it like any other app": "Riffle をアイコン付きで追加し、他のアプリと同じように開けるようにします",
+  "Added": "追加済み",
+  "Could not add Riffle to the applications menu": "Riffle をアプリケーションメニューに追加できませんでした"
 };

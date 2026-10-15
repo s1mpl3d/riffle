@@ -55,6 +55,7 @@
       "!dist/**",
       "!bin/**",
       "!scripts/**",
+      "!test/**",
       "!*.md",
       "!package-lock.json"
     ],
