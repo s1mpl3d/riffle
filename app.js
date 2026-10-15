@@ -2004,7 +2004,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let animationFrameId = null;
   // read every frame, so kept as plain booleans instead of body class lookups
-  const uiFlags = { perf: false, flatScrubber: false };
+  const uiFlags = { perf: false, flatScrubber: false, noBarViz: false };
   const lyricsTr = {
     enabled: localStorage.getItem('riffle_tr_enabled') === 'true',
     auto: localStorage.getItem('riffle_tr_auto') === 'true',
@@ -2150,7 +2150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (el.coverContainer && el.coverContainer.style.transform) el.coverContainer.style.transform = '';
       }
 
-      if (miniCtx && miniCanvas) {
+      if (miniCtx && miniCanvas && !uiFlags.noBarViz) {
         miniCtx.clearRect(0, 0, 60, 24);
         if (state.isPlaying) {
           const barCount = 12;
@@ -3663,6 +3663,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // a slower, older search must not replace the results of a newer one
+    const searchToken = (state.searchToken || 0) + 1;
+    state.searchToken = searchToken;
+    const artistCard = document.getElementById('search-artist-card');
+    if (artistCard) { artistCard.hidden = true; artistCard.textContent = ''; }
+
     // links (spotify/tiktok) carry case-sensitive ids
     state.searchQuery = /^https?:\/\//i.test(query.trim()) ? query.trim() : query.trim().toLowerCase();
     switchView('discover');
@@ -3714,8 +3720,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const searchUrl = `http://127.0.0.1:${state.serverPort}/api/search?q=${encodeURIComponent(state.searchQuery)}&platform=${state.platform}&limit=20`;
       const res = await fetch(searchUrl);
       const data = await res.json();
+      if (state.searchToken !== searchToken) return;
 
       if (!data.success || !data.tracks) throw new Error(data.error || tr('Failed to load search results'));
+      showArtistCard(query.trim(), data.tracks, searchToken);
 
       state.searchResults = data.tracks;
       if (el.resultsCount) el.resultsCount.textContent = trn(data.tracks.length, '{n} track found', '{n} tracks found');
@@ -3725,6 +3733,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (el.searchTracksList) renderTracks(el.searchTracksList, data.tracks, 'search');
       });
     } catch (err) {
+      if (state.searchToken !== searchToken) return;
       console.error('Search error:', err);
       const isOff = !navigator.onLine;
       if (el.searchTracksList) el.searchTracksList.innerHTML = `<div class="empty-hint">${isOff ? tr('Offline: connect to the internet to search new tracks') : tr('Error fetching results: {error}', { error: escapeHtml(err.message) })}</div>`;
@@ -3732,6 +3741,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+
+  // an artist card above the results when the search looks like an artist name
+  async function showArtistCard(query, tracks, token) {
+    const box = document.getElementById('search-artist-card');
+    if (!box || localStorage.getItem('riffle_search_artists') === 'false') return;
+    if (/^https?:\/\//i.test(query) || query.startsWith('@') || state.platform === 'tiktok' || query.length < 2) return;
+    const norm = (v) => String(v || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    let data;
+    try { data = await (await fetch(`http://127.0.0.1:${state.serverPort}/api/artist?name=${encodeURIComponent(query)}&lang=${encodeURIComponent((window.i18n && window.i18n.lang) || 'en')}`)).json(); } catch (e) { return; }
+    if (state.searchToken !== token || !data.success || !data.artist || !data.artist.name) return;
+    const a = norm(data.artist.name), q = norm(query);
+    const byName = a === q || a.startsWith(q + ' ') || q.startsWith(a + ' ');
+    const byResults = (tracks || []).slice(0, 5).filter(t => norm(t.artist).includes(a)).length >= 2;
+    if (!a || (!byName && !byResults)) return;
+    box.textContent = '';
+    const img = document.createElement('img');
+    img.className = 'search-artist-avatar';
+    img.alt = '';
+    img.src = data.artist.avatar || (tracks[0] && tracks[0].thumbnail) || '';
+    img.onerror = () => { img.style.visibility = 'hidden'; };
+    const info = document.createElement('div');
+    info.className = 'search-artist-info';
+    const name = document.createElement('span');
+    name.className = 'search-artist-name';
+    name.textContent = data.artist.name;
+    const label = document.createElement('span');
+    label.className = 'search-artist-label';
+    label.textContent = tr('Artist');
+    info.append(name, label);
+    box.append(img, info);
+    box.tabIndex = 0;
+    box.setAttribute('role', 'button');
+    box.onclick = () => openArtistProfile(data.artist.name);
+    box.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openArtistProfile(data.artist.name); } };
+    box.hidden = false;
+  }
 
   function createTrackRow(track, idx, currentCanonicalId, context, tracks, container) {
       const row = document.createElement('div');
@@ -4026,14 +4071,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.artistTracksList) el.artistTracksList.innerHTML = `<div class="empty-hint">${tr('fetching official releases...')}</div>`;
 
     try {
-      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/artist?name=${encodeURIComponent(cleanName)}`);
+      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/artist?name=${encodeURIComponent(cleanName)}&lang=${encodeURIComponent((window.i18n && window.i18n.lang) || 'en')}`);
       const data = await res.json();
 
       if (!data.success || !data.artist) throw new Error(tr('Artist not found'));
 
       state.currentArtistData = data.artist;
       if (el.artistProfileName) el.artistProfileName.textContent = data.artist.name;
-      if (el.artistProfileBio) el.artistProfileBio.textContent = data.artist.bio;
+      if (el.artistProfileBio) {
+        el.artistProfileBio.textContent = data.artist.bio || '';
+        el.artistProfileBio.hidden = !data.artist.bio;
+      }
 
       if (el.artistVerifiedBadge) el.artistVerifiedBadge.classList.toggle('hidden', !data.artist.isVerified);
 
@@ -5482,6 +5530,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const platform = btn.dataset.platform;
       if (state.platform === platform) return;
       state.platform = platform;
+      try { localStorage.setItem('riffle_platform', platform); } catch (e) {}
       platformButtons.forEach(b => b.classList.toggle('active', b === btn));
       if (el.searchInput) {
         el.searchInput.placeholder = platform === 'tiktok'
@@ -5491,6 +5540,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (el.searchInput && el.searchInput.value.trim()) performSearch(el.searchInput.value);
     });
   });
+
+  // the source picked last time is the one searches use after a restart
+  {
+    const last = localStorage.getItem('riffle_platform');
+    const btn = last && [...platformButtons].find(b => b.dataset.platform === last);
+    if (btn && last !== state.platform) {
+      state.platform = last;
+      platformButtons.forEach(b => b.classList.toggle('active', b === btn));
+      if (el.searchInput && last === 'tiktok') el.searchInput.placeholder = tr('Paste a TikTok video link, profile link or @username...');
+    }
+  }
 
   if (el.btnPlayPause) el.btnPlayPause.addEventListener('click', togglePlayPause);
   if (el.btnNext) el.btnNext.addEventListener('click', playNext);
@@ -9007,6 +9067,83 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     return { apply };
   })();
+
+  // the Now playing panel: drag its left edge to resize, double-click for the default width
+  {
+    const edge = document.getElementById('panel-resize-edge');
+    const root = document.documentElement;
+    const clamp = (w) => Math.round(Math.max(280, Math.min(Math.min(640, window.innerWidth * 0.45), w)));
+    const saved = parseInt(localStorage.getItem('riffle_panel_width') || '', 10);
+    if (saved) root.style.setProperty('--right-panel-w', `${clamp(saved)}px`);
+    if (edge) {
+      edge.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        edge.setPointerCapture(e.pointerId);
+        const panel = document.getElementById('right-panel');
+        const startX = e.clientX, startW = panel.getBoundingClientRect().width;
+        document.body.classList.add('resizing-panel');
+        const move = (ev) => root.style.setProperty('--right-panel-w', `${clamp(startW + (startX - ev.clientX))}px`);
+        const up = () => {
+          edge.removeEventListener('pointermove', move);
+          document.body.classList.remove('resizing-panel');
+          try { localStorage.setItem('riffle_panel_width', String(parseInt(getComputedStyle(root).getPropertyValue('--right-panel-w'), 10) || 340)); } catch (err) {}
+        };
+        edge.addEventListener('pointermove', move);
+        edge.addEventListener('pointerup', up, { once: true });
+      });
+      edge.addEventListener('dblclick', () => {
+        root.style.removeProperty('--right-panel-w');
+        try { localStorage.removeItem('riffle_panel_width'); } catch (e) {}
+      });
+    }
+  }
+
+  // ---- top bar and other interface options ------------------------------------------------------
+  {
+    const nav = document.querySelector('.top-nav');
+    const setPos = (pos) => {
+      if (!nav) return;
+      nav.classList.remove('search-pos-left', 'search-pos-middle', 'search-pos-right');
+      nav.classList.add(`search-pos-${pos}`);
+      try { localStorage.setItem('riffle_search_pos', pos); } catch (e) {}
+    };
+    const pos = ['left', 'middle', 'right'].includes(localStorage.getItem('riffle_search_pos')) ? localStorage.getItem('riffle_search_pos') : 'left';
+    setPos(pos);
+    bindDropdown('search-pos-dropdown', [
+      { value: 'left', label: tr('Left') }, { value: 'middle', label: tr('Middle') }, { value: 'right', label: tr('Right') }
+    ], pos, setPos);
+
+    const setSources = (mode) => {
+      if (!nav) return;
+      nav.classList.toggle('sources-icons', mode === 'icons');
+      nav.classList.toggle('sources-hidden', mode === 'hidden');
+      try { localStorage.setItem('riffle_source_buttons', mode); } catch (e) {}
+    };
+    const sources = ['full', 'icons', 'hidden'].includes(localStorage.getItem('riffle_source_buttons')) ? localStorage.getItem('riffle_source_buttons') : 'full';
+    setSources(sources);
+    bindDropdown('source-buttons-dropdown', [
+      { value: 'full', label: tr('Names and icons') }, { value: 'icons', label: tr('Icons only') }, { value: 'hidden', label: tr('Hidden') }
+    ], sources, setSources);
+  }
+  bindLocalSwitch('btn-highlight-buttons', 'riffle_highlight_buttons', false, (on) => document.body.classList.toggle('highlight-buttons', on));
+  bindLocalSwitch('btn-bar-visualizer', 'riffle_bar_visualizer', true, (on) => {
+    uiFlags.noBarViz = !on;
+    document.body.classList.toggle('no-bar-visualizer', !on);
+  });
+  bindLocalSwitch('btn-search-artists', 'riffle_search_artists', true, () => {});
+  {
+    const btn = document.getElementById('btn-multi-instance');
+    const api = window.electronAPI;
+    if (btn && api && api.getMultiInstance) {
+      api.getMultiInstance().then(on => btn.classList.toggle('active', !!on));
+      btn.addEventListener('click', () => {
+        const next = !btn.classList.contains('active');
+        btn.classList.toggle('active', next);
+        api.setMultiInstance(next);
+        showToast(tr('Applies after Riffle restarts'));
+      });
+    }
+  }
 
   bindLocalSwitch('btn-no-hand-cursor', 'riffle_arrow_cursor', false, (on) => document.body.classList.toggle('arrow-cursor', on));
 

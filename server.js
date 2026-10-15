@@ -1622,9 +1622,20 @@ async function handleStreamInfo(req, res, trackUrl, trackId, platform = 'youtube
   res.end(JSON.stringify(data));
 }
 
-async function fetchArtistInfo(artistName) {
+const wikiSummary = (lang, title) => new Promise((resolve) => {
+  https.get(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`, { headers: { 'User-Agent': 'Riffle (music player)' }, timeout: 3500 }, (wRes) => {
+    let d = '';
+    wRes.on('data', c => d += c);
+    wRes.on('end', () => resolve(safeJsonParse(d, null)));
+  }).on('error', () => resolve(null)).on('timeout', function () { this.destroy(); resolve(null); });
+});
+
+// only a page that reads like a musician or band counts, so a namesake's article never shows up
+const MUSIC_WORDS = /(singer|rapper|musician|band|songwriter|dj|producer|composer|group|duo|music|cantor|cantora|banda|músic|cantante|chanteu|musicien|sänger|musiker|cantante|musicista|piosenkar|muzyk|певец|певица|группа|музыкант|şarkıcı|müzisyen|grup|歌手|音楽|バンド|가수|밴드|音乐|乐队)/i;
+
+async function fetchArtistInfo(artistName, lang = 'en') {
   const cleanName = (artistName || '').replace(/ - Topic|VEVO|Official|Records/gi, '').trim();
-  const cacheKey = cleanName.toLowerCase();
+  const cacheKey = `${cleanName.toLowerCase()}|${lang}`;
   if (artistCache.has(cacheKey)) return artistCache.get(cacheKey);
 
   let bio = '';
@@ -1683,16 +1694,10 @@ async function fetchArtistInfo(artistName) {
   } catch (e) {}
 
   try {
-    const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanName)}`;
-    const wikiData = await new Promise((resolve) => {
-      https.get(wikiUrl, { headers: { 'User-Agent': 'devsize/2.0' }, timeout: 3500 }, (wRes) => {
-        let d = '';
-        wRes.on('data', c => d += c);
-        wRes.on('end', () => {
-          try { resolve(JSON.parse(d)); } catch (e) { resolve(null); }
-        });
-      }).on('error', () => resolve(null));
-    });
+    const fits = (w) => w && w.type !== 'disambiguation' && w.extract && MUSIC_WORDS.test(`${w.description || ''} ${w.extract.slice(0, 300)}`);
+    let wikiData = lang !== 'en' ? await wikiSummary(lang, cleanName) : null;
+    if (!fits(wikiData)) wikiData = await wikiSummary('en', cleanName);
+    if (!fits(wikiData)) wikiData = null;
 
     if (wikiData && wikiData.extract) {
       bio = wikiData.extract;
@@ -1711,7 +1716,7 @@ async function fetchArtistInfo(artistName) {
 
   const result = {
     name: cleanName,
-    bio: bio || 'artist biography available across streaming networks.',
+    bio: bio || '',
     avatar: avatar || (tracks[0] ? tracks[0].thumbnail : ''),
     isVerified: isVerified,
     tracks: tracks.slice(0, 35)
@@ -2591,7 +2596,8 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ success: false, error: 'Missing artist name' }));
     }
-    const info = await fetchArtistInfo(name);
+    const lang = /^[a-z]{2}$/.test(String(parsedUrl.query.lang || '').split('-')[0]) ? String(parsedUrl.query.lang).split('-')[0] : 'en';
+    const info = await fetchArtistInfo(name, lang);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, artist: info }));
   }

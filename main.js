@@ -65,13 +65,24 @@ function runGUI() {
   // RIFFLE_PROFILE_DIR lets a dev copy run next to the installed one
   app.setPath('userData', process.env.RIFFLE_PROFILE_DIR || path.join(app.getPath('appData'), 'Riffle'));
 
-  // a second instance can't open localStorage (leveldb lock) and loses everything on exit
+  // a second instance can't open localStorage (leveldb lock) and loses everything on exit,
+  // so with "Allow a second window" on it gets a profile of its own instead
+  let isExtraInstance = false;
   if (!app.requestSingleInstanceLock()) {
-    app.quit();
-    return;
+    const multi = !!require('./platform').readConfig().multiInstance;
+    let got = false;
+    for (let n = 2; multi && !got && n <= 5; n++) {
+      app.setPath('userData', path.join(app.getPath('appData'), `Riffle-${n}`));
+      got = app.requestSingleInstanceLock();
+    }
+    if (!got) {
+      app.quit();
+      return;
+    }
+    isExtraInstance = true;
   }
 
-  require('./migrate').migrateFromRiff(app);
+  if (!isExtraInstance) require('./migrate').migrateFromRiff(app);
 
   const { startServer, PORT, getServerToken } = require('./server');
   const discordRPC = require('./discord-rpc');
@@ -486,6 +497,9 @@ function runGUI() {
       });
 
       require('./themes').register(() => mainWindow);
+
+      ipcMain.handle('get-multi-instance', () => !!require('./platform').readConfig().multiInstance);
+      ipcMain.on('set-multi-instance', (event, on) => require('./platform').writeConfig({ multiInstance: on ? true : null }));
 
       // storage: the data folder switches on the next start, the download folder right away
       const isInside = (child, parent) => {

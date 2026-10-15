@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setMediaKeys: (enabled) => ipcRenderer.send('set-media-keys', enabled),
   mediaKeysArmed: () => ipcRenderer.send('media-keys-armed'),
   setUiScale: (s) => ipcRenderer.send('ui-scale', s),
+  getMultiInstance: () => ipcRenderer.invoke('get-multi-instance'),
+  setMultiInstance: (on) => ipcRenderer.send('set-multi-instance', on),
   listThemes: () => ipcRenderer.invoke('themes-list'),
   importThemes: () => ipcRenderer.invoke('themes-import'),
   setThemeEnabled: (id, on) => ipcRenderer.send('themes-set-enabled', id, on),

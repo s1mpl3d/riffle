@@ -295,6 +295,7 @@
             </div>
             <span class="results-count" id="results-count">0 tracks found</span>
           </div>
+          <div class="search-artist-card" id="search-artist-card" hidden></div>
           <div class="tracks-list" id="search-tracks-list"></div>
         </div>
       </section>
@@ -621,6 +622,62 @@
               </div>
               <input type="range" class="pill-range" id="settings-slider-scale" min="90" max="140" step="5" value="100">
               <div class="setting-hints"><span>Compact</span><span>100%</span><span>Large</span></div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center; gap: 12px;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Search bar</span>
+                  <span class="setting-desc">Where the search bar sits in the top bar</span>
+                </div>
+                <div class="m3-dropdown setting-dropdown" id="search-pos-dropdown">
+                  <button class="m3-dropdown-trigger" type="button"><span></span><svg class="m3-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                  <div class="m3-dropdown-menu"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center; gap: 12px;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Source buttons</span>
+                  <span class="setting-desc">YouTube, YT Music, SoundCloud and the rest in the top bar</span>
+                </div>
+                <div class="m3-dropdown setting-dropdown" id="source-buttons-dropdown">
+                  <button class="m3-dropdown-trigger" type="button"><span></span><svg class="m3-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                  <div class="m3-dropdown-menu"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Highlight main buttons</span>
+                  <span class="setting-desc">Fill the main button of each screen with the accent color</span>
+                </div>
+                <button class="effect-switch-btn" id="btn-highlight-buttons"><span class="thumb"></span></button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Artists in search</span>
+                  <span class="setting-desc">Show a matching artist above the search results</span>
+                </div>
+                <button class="effect-switch-btn active" id="btn-search-artists"><span class="thumb"></span></button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Player bar visualizer</span>
+                  <span class="setting-desc">The small bars that move with the music, next to the volume</span>
+                </div>
+                <button class="effect-switch-btn active" id="btn-bar-visualizer"><span class="thumb"></span></button>
+              </div>
             </div>
 
             <div class="setting-item">
@@ -1148,6 +1205,16 @@
               </div>
             </div>
 
+            <div class="setting-item">
+              <div class="setting-item-top" style="align-items: center;">
+                <div class="setting-label-stack">
+                  <span class="setting-name">Allow a second window</span>
+                  <span class="setting-desc">For trying things out: another Riffle can start next to this one, with its own empty profile. Applies after a restart</span>
+                </div>
+                <button class="effect-switch-btn" id="btn-multi-instance"><span class="thumb"></span></button>
+              </div>
+            </div>
+
             <div class="setting-item" id="setting-media-keys" hidden>
               <div class="setting-item-top" style="align-items: center;">
                 <div class="setting-label-stack">
@@ -1276,6 +1343,7 @@
     </main>
 
     <aside class="right-panel lyrics-empty" id="right-panel">
+      <div class="panel-resize-edge" id="panel-resize-edge" title="Drag to resize, double-click to reset"></div>
       <div class="right-panel-banner" id="right-panel-banner"><div class="banner-image"></div></div>
       <div class="right-panel-header">
         <span class="right-panel-label">Now playing</span>
