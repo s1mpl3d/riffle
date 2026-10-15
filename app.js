@@ -6204,6 +6204,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Esc peels off one layer at a time: karaoke, then the top dialog, then the drawer
   function closeTopLayer() {
+    const cssEditor = document.getElementById('css-editor');
+    if (cssEditor && !cssEditor.hidden) { cssEditor.hidden = true; return true; }
     if (tvKaraoke.open) { closeTvKaraoke(); return true; }
     const open = [...document.querySelectorAll('.modal-backdrop:not(.hidden)')];
     const top = open[open.length - 1];
@@ -8830,6 +8832,181 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderPresets();
   });
   if (el.audioSettingsModal) el.audioSettingsModal.addEventListener('click', () => { if (soundMemory.on) setTimeout(soundMemory.save, 0); });
+
+  // ---- themes: .css files the user adds, plus their own CSS typed in the editor ------------------
+
+  const userStyles = (() => {
+    const themesEl = document.createElement('style');
+    themesEl.id = 'user-themes';
+    const ownEl = document.createElement('style');
+    ownEl.id = 'user-css';
+    // last in <head>, so they win over the app's own styles
+    document.head.append(themesEl, ownEl);
+    let themes = [];
+    const apply = () => {
+      themesEl.textContent = themes.filter(t => t.enabled).map(t => `/* ${t.name.replace(/\*\//g, '')} */\n${t.css}`).join('\n');
+      ownEl.textContent = localStorage.getItem('riffle_custom_css') || '';
+    };
+    const api = window.electronAPI;
+
+    function render() {
+      const list = document.getElementById('custom-themes-list');
+      if (!list) return;
+      list.textContent = '';
+      for (const t of themes) {
+        const row = document.createElement('div');
+        row.className = 'theme-row';
+        const info = document.createElement('div');
+        info.className = 'theme-row-info';
+        const name = document.createElement('span');
+        name.className = 'theme-row-name';
+        name.textContent = t.name;
+        const meta = document.createElement('span');
+        meta.className = 'theme-row-meta';
+        meta.textContent = [t.author && tr('by {author}', { author: t.author }), t.description].filter(Boolean).join(' · ');
+        info.append(name, meta);
+        const remove = document.createElement('button');
+        remove.className = 'btn-icon-pill';
+        remove.title = tr('Remove');
+        remove.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+        remove.addEventListener('click', () => {
+          api.removeTheme(t.id);
+          themes = themes.filter(x => x.id !== t.id);
+          apply();
+          render();
+        });
+        const toggle = document.createElement('button');
+        toggle.className = 'effect-switch-btn';
+        toggle.innerHTML = '<span class="thumb"></span>';
+        toggle.classList.toggle('active', !!t.enabled);
+        toggle.addEventListener('click', () => {
+          t.enabled = !t.enabled;
+          toggle.classList.toggle('active', t.enabled);
+          api.setThemeEnabled(t.id, t.enabled);
+          apply();
+        });
+        row.append(info, remove, toggle);
+        list.appendChild(row);
+      }
+    }
+
+    if (api && api.listThemes) {
+      api.listThemes().then(list => { themes = list || []; apply(); render(); }).catch(apply);
+      const add = document.getElementById('btn-add-theme');
+      if (add) add.addEventListener('click', async () => {
+        const added = await api.importThemes();
+        if (!added.length) return;
+        themes.push(...added);
+        render();
+        showToast(trn(added.length, '{n} theme added. Turn it on to try it', '{n} themes added. Turn one on to try it'));
+      });
+    } else {
+      apply();
+    }
+
+    // the Monaco editor (MIT, from VS Code) loads only the first time the editor opens
+    let editor = null;
+    let loading = null;
+    const loadMonaco = () => loading || (loading = new Promise((resolve, reject) => {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'vendor/monaco/vs/editor/editor.main.css';
+      document.head.insertBefore(css, themesEl);
+      const loader = document.createElement('script');
+      loader.src = 'vendor/monaco/vs/loader.js';
+      loader.onload = () => {
+        const vs = new URL('vendor/monaco/vs', location.href).href;
+        // the language worker needs an absolute address, or it looks for vendor/ at the drive root
+        window.MonacoEnvironment = {
+          getWorkerUrl: () => URL.createObjectURL(new Blob([`self.MonacoEnvironment = { baseUrl: '${vs}/../' }; importScripts('${vs}/base/worker/workerMain.js');`], { type: 'text/javascript' }))
+        };
+        window.require.config({ paths: { vs } });
+        window.require(['vs/editor/editor.main'], () => resolve(window.monaco), reject);
+      };
+      loader.onerror = reject;
+      document.head.appendChild(loader);
+    }));
+
+    function editorTheme(monaco) {
+      const cs = getComputedStyle(document.documentElement);
+      const color = (name, fallback) => {
+        const probe = document.createElement('i');
+        probe.style.color = cs.getPropertyValue(name).trim() || fallback;
+        document.body.appendChild(probe);
+        const rgb = getComputedStyle(probe).color.match(/\d+/g) || [0, 0, 0];
+        probe.remove();
+        return '#' + rgb.slice(0, 3).map(n => Number(n).toString(16).padStart(2, '0')).join('');
+      };
+      const bg = color('--md-sys-color-surface-container-lowest', '#141218');
+      const primary = color('--md-sys-color-primary', '#d0bcff');
+      const dark = parseInt(bg.slice(1, 3), 16) + parseInt(bg.slice(3, 5), 16) + parseInt(bg.slice(5, 7), 16) < 384;
+      monaco.editor.defineTheme('riffle', {
+        base: dark ? 'vs-dark' : 'vs', inherit: true, rules: [],
+        colors: { 'editor.background': bg, 'editorGutter.background': bg, 'minimap.background': bg, 'editorCursor.foreground': primary, 'editor.selectionBackground': primary + '55' }
+      });
+      monaco.editor.setTheme('riffle');
+    }
+
+    const overlay = document.getElementById('css-editor');
+    const restoreBtn = document.getElementById('btn-css-restore');
+    const syncRestore = () => { if (restoreBtn) restoreBtn.hidden = !localStorage.getItem('riffle_custom_css_backup'); };
+
+    async function open() {
+      overlay.hidden = false;
+      syncRestore();
+      let monaco;
+      try { monaco = await loadMonaco(); } catch (e) {
+        overlay.hidden = true;
+        loading = null;
+        return showToast(tr('Could not load the CSS editor'), 'error');
+      }
+      editorTheme(monaco);
+      if (!editor) {
+        editor = monaco.editor.create(document.getElementById('css-editor-host'), {
+          value: localStorage.getItem('riffle_custom_css') || '/* Your CSS goes here, for example:\n.btn-pill-primary { border-radius: 8px; }\n*/\n',
+          language: 'css', automaticLayout: true, minimap: { enabled: false }, fontSize: 14, tabSize: 2,
+          wordWrap: 'on', scrollBeyondLastLine: false, padding: { top: 12 }, colorDecorators: true
+        });
+        let timer = 0;
+        editor.onDidChangeModelContent(() => {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            try { localStorage.setItem('riffle_custom_css', editor.getValue()); } catch (e) {}
+            apply();
+          }, 300);
+        });
+      }
+      editor.focus();
+    }
+
+    document.getElementById('btn-open-css-editor').addEventListener('click', open);
+    document.getElementById('btn-css-close').addEventListener('click', () => { overlay.hidden = true; });
+    document.getElementById('btn-css-clear').addEventListener('click', () => {
+      const current = localStorage.getItem('riffle_custom_css') || '';
+      if (current.trim()) localStorage.setItem('riffle_custom_css_backup', current);
+      localStorage.setItem('riffle_custom_css', '');
+      if (editor) editor.setValue('');
+      apply();
+      syncRestore();
+    });
+    if (restoreBtn) restoreBtn.addEventListener('click', () => {
+      const backup = localStorage.getItem('riffle_custom_css_backup') || '';
+      localStorage.setItem('riffle_custom_css', backup);
+      localStorage.removeItem('riffle_custom_css_backup');
+      if (editor) editor.setValue(backup);
+      apply();
+      syncRestore();
+    });
+    // a broken style can hide everything: Ctrl+Shift+Alt+R turns all user styles off for this session
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyR') {
+        themesEl.textContent = '';
+        ownEl.textContent = '';
+        showToast(tr('Themes and your CSS are off until Riffle restarts'));
+      }
+    });
+    return { apply };
+  })();
 
   bindLocalSwitch('btn-no-hand-cursor', 'riffle_arrow_cursor', false, (on) => document.body.classList.toggle('arrow-cursor', on));
 

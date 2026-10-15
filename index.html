@@ -752,6 +752,31 @@
           </div>
 
           <div class="settings-section" data-cat="appearance">
+            <span class="settings-section-title">Themes</span>
+            <div class="settings-group">
+              <div class="setting-item">
+                <div class="setting-item-top" style="align-items: center; justify-content: space-between; gap: 12px;">
+                  <div class="setting-label-stack">
+                    <span class="setting-name">Your CSS</span>
+                    <span class="setting-desc">Change any part of Riffle with your own styles, applied as you type</span>
+                  </div>
+                  <button class="btn-outline-pill btn-small" id="btn-open-css-editor" type="button">Edit</button>
+                </div>
+              </div>
+              <div class="setting-item">
+                <div class="setting-item-top" style="align-items: center; justify-content: space-between; gap: 12px;">
+                  <div class="setting-label-stack">
+                    <span class="setting-name">Theme files</span>
+                    <span class="setting-desc">Add .css themes and turn them on or off. A theme can name itself with @name, @author and @description in its first comment</span>
+                  </div>
+                  <button class="btn-outline-pill btn-small" id="btn-add-theme" type="button">Add</button>
+                </div>
+                <div class="theme-list" id="custom-themes-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section" data-cat="appearance">
             <span class="settings-section-title">Banners</span>
             <div class="settings-group">
               <div class="setting-item">
@@ -1320,6 +1345,17 @@
     </div>
     <input type="range" class="pill-range" id="slider-jukebox-jumps" min="0" max="100" step="5" value="40">
     <div class="setting-hints"><span>Fewer</span><span>More</span></div>
+  </div>
+
+  <div class="css-editor" id="css-editor" hidden>
+    <div class="css-editor-bar">
+      <span class="css-editor-title">Your CSS</span>
+      <span class="css-editor-hint" id="css-editor-hint">Changes apply as you type</span>
+      <button class="btn-text-pill" id="btn-css-restore" type="button" hidden>Undo clear</button>
+      <button class="btn-text-pill" id="btn-css-clear" type="button">Clear</button>
+      <button class="btn-pill-primary" id="btn-css-close" type="button">Done</button>
+    </div>
+    <div class="css-editor-host" id="css-editor-host"></div>
   </div>
 
   <div class="tv-karaoke" id="tv-karaoke" hidden>

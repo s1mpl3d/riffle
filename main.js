@@ -485,6 +485,8 @@ function runGUI() {
         return { url: pathToFileURL(result.filePaths[0]).href, name: path.basename(result.filePaths[0]) };
       });
 
+      require('./themes').register(() => mainWindow);
+
       // storage: the data folder switches on the next start, the download folder right away
       const isInside = (child, parent) => {
         const rel = path.relative(parent, child);

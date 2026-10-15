@@ -33,7 +33,7 @@ function configuredDir(value) {
 }
 
 // everything Riffle keeps in the data folder; moving or cleaning up never touches anything else there
-const DATA_ENTRIES = ['tracks', 'custom-lyrics', 'lyrics', 'thumbnails', 'library', 'jukebox', 'bin', 'metadata.json', 'library.json', 'spotify.json', 'spotify-user.json'];
+const DATA_ENTRIES = ['tracks', 'custom-lyrics', 'lyrics', 'thumbnails', 'library', 'jukebox', 'bin', 'metadata.json', 'library.json', 'spotify.json', 'spotify-user.json', 'themes'];
 
 const DATA_DIR = configuredDir(process.env.RIFFLE_DATA_DIR) || configuredDir(readConfig().dataDir) || DEFAULT_DATA_DIR;
 

@@ -5570,3 +5570,20 @@ body.perf .dq-row.is-converting .dq-bar > div, body.perf .nav-item.is-downloadin
 .eq-bands-10 { grid-template-columns: repeat(10, 1fr); gap: 2px; }
 .eq-card .eq-modes .eq-mode-btn { background: transparent; color: var(--md-sys-color-on-surface-variant); box-shadow: inset 0 0 0 1px var(--md-sys-color-outline-variant); }
 .eq-card .eq-modes .eq-mode-btn.active { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); box-shadow: none; }
+
+/* themes and the CSS editor */
+.theme-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.theme-list:empty { display: none; }
+.theme-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--md-sys-color-surface-container-high); }
+.theme-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.theme-row-name { font-size: calc(13.5px * var(--font-scale, 1)); font-weight: 600; color: var(--md-sys-color-on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-row-meta { font-size: calc(11.5px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface-variant); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-row-meta:empty { display: none; }
+.css-editor { position: fixed; inset: 0; z-index: 20000; display: flex; flex-direction: column; background: var(--md-sys-color-surface-container-lowest, #141218); }
+.css-editor[hidden] { display: none; }
+.css-editor-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; padding-right: 150px; border-bottom: 1px solid var(--md-sys-color-outline-variant); -webkit-app-region: drag; }
+.css-editor-bar button { -webkit-app-region: no-drag; }
+.css-editor-bar [hidden] { display: none; }
+.css-editor-title { font-weight: 600; color: var(--md-sys-color-on-surface); }
+.css-editor-hint { flex: 1; font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface-variant); }
+.css-editor-host { flex: 1; min-height: 0; }
