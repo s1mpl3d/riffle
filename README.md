@@ -24,6 +24,8 @@ Tested on Windows and Linux.
 * Session restore: the queue and position come back when you reopen the app
 * Keeps playing in the tray when the window is closed
 * Media keys on your keyboard or headset, also on Windows while another window is in front (can be turned off)
+* Shuffle that never repeats a song back to back, and Previous goes back the way it came
+* Jukebox (beta): plays a song forever by jumping between beats that sound alike, with a circle that shows the jumps
 
 ### Mini player
 
@@ -53,17 +55,20 @@ Spotify audio is not streamed: Riffle reads the track info and plays the matchin
 
 ### Library and downloads
 
-* Save songs for offline listening (stored in `Music\Riffle`)
+* Save songs for offline listening (stored in `Music\Riffle` by default, the folder can be changed)
+* Downloads run in a queue with progress and cancel, and a whole playlist can be downloaded at once
 * Playlists, favorites and a Saved view
 * My files: add your own audio files (button or drag and drop); tags and cover are read with ffmpeg
-* Import a public Spotify playlist or album into a new or existing playlist
+* Import playlists from a link (Spotify, Apple Music, YouTube, YouTube Music, SoundCloud), from an exported file, or from your Spotify library after logging in with your own Client ID
 * Reads common audio tags: title, artist, album, track number, cover art
 
 ### Audio editor
 
 * Speed up / slow down in real time
-* Reverb, distortion and a three-band equalizer
-* Presets glide into each other instead of jumping
+* Reverb, echo and distortion up to 300%
+* Muffled, thin, lo-fi, tremolo, 8D audio and chorus
+* Three-band equalizer, or ten bands for finer work
+* Presets glide into each other instead of jumping, and the effects can stay on after a restart
 * Trim the start or end, select a part of a song and save it as a separate file
 
 ### Lyrics
@@ -77,7 +82,14 @@ Spotify audio is not streamed: Riffle reads the track info and plays the matchin
 
 * Material You colors, a gradient editor, panel and text opacity
 * Wallpaper and banner from an image or video, or the album art of the current song; per-song cover and banner
+* Shadows under the panels with adjustable strength and spread, a resizable Now playing panel
+* Your own CSS in a built-in editor, and .css theme files you can turn on and off
+* Where the search bar sits, how the source buttons look, reduce motion
 * Performance mode for slower computers (turned on automatically when there is no graphics acceleration)
+
+### Storage
+
+The data folder (cache, lyrics, My files, tools) and the download folder can both be moved in Settings > Storage, with an option to take the files along.
 
 ### Discord Rich Presence
 
