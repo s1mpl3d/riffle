@@ -4121,10 +4121,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function openArtistProfile(artistName) {
     if (!artistName || !artistName.trim()) return;
-    const cleanName = artistName.replace(/ - Topic|VEVO|Official|Records/gi, '').trim().toLowerCase();
+    const cleanName = artistName.replace(/ - Topic|VEVO|Official|Records/gi, '').trim();
 
     state.previousView = state.currentView;
     switchView('artist');
+    const hero = document.querySelector('.artist-hero-card');
+    if (hero) hero.style.removeProperty('--artist-accent');
 
     if (el.artistProfileName) el.artistProfileName.textContent = cleanName;
     if (el.artistProfileBio) el.artistProfileBio.textContent = tr('Fetching artist discography and biography...');
@@ -4160,6 +4162,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (el.artistHeroBackdrop) {
           el.artistHeroBackdrop.style.backgroundImage = `url(${JSON.stringify(String(data.artist.avatar))})`;
         }
+        getCoverDominantColors(data.artist.avatar).then(([color]) => {
+          if (hero && state.currentArtistData === data.artist) hero.style.setProperty('--artist-accent', color);
+        }).catch(() => {});
       }
 
       if (el.artistTracksCount) el.artistTracksCount.textContent = trn(data.artist.tracks.length, '{n} track', '{n} tracks');

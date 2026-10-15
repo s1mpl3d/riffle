@@ -1330,7 +1330,7 @@ body.is-playing .shape-triangle {
 }
 
 .artist-hero-card {
-  background: var(--md-sys-color-surface-container);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--artist-accent, var(--md-sys-color-surface-container)) 45%, var(--md-sys-color-surface-container)), var(--md-sys-color-surface-container) 85%);
   border: none;
   border-radius: var(--md-shape-corner-xl);
   padding: 32px;

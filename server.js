@@ -1631,6 +1631,7 @@ async function fetchArtistInfo(artistName, lang = 'en') {
   let avatar = '';
   let isVerified = false;
   let tracks = [];
+  let resolvedName = cleanName;
 
   try {
     const dzUrl = `https://api.deezer.com/search/artist?q=${encodeURIComponent(cleanName)}`;
@@ -1646,6 +1647,7 @@ async function fetchArtistInfo(artistName, lang = 'en') {
 
     if (dzData && dzData.data && dzData.data.length > 0) {
       const topArtist = dzData.data[0];
+      if (topArtist.name) resolvedName = topArtist.name;
       avatar = topArtist.picture_xl || topArtist.picture_big || topArtist.picture_medium || '';
       isVerified = (topArtist.nb_fan || 0) > 30000;
 
@@ -1704,7 +1706,7 @@ async function fetchArtistInfo(artistName, lang = 'en') {
   }
 
   const result = {
-    name: cleanName,
+    name: resolvedName,
     bio: bio || '',
     avatar: avatar || (tracks[0] ? tracks[0].thumbnail : ''),
     isVerified: isVerified,
