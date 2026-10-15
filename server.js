@@ -1294,10 +1294,6 @@ async function runTrackDownload(trackUrl, cleanId, trackId, platform, meta) {
     '-o', tempPath
   ];
 
-  if (platform === 'youtube') {
-    args.push('--extractor-args', 'youtube:player_client=android_creator,android,web');
-  }
-
   if (!isHttpUrl(trackUrl)) { downloadingSet.delete(cleanId); return; }
   args.push('--', trackUrl);
 
@@ -1363,7 +1359,6 @@ async function prefetchTrack(trackUrl, trackId, platform) {
       '--no-check-certificates'
     ];
     if (platform === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=android_creator,android,web');
       args.push('-f', 'bestaudio/ba/b');
     }
     if (!isHttpUrl(trackUrl)) return;
@@ -1466,10 +1461,6 @@ async function handleSearch(req, res, query, platform = 'youtube', limit = 20) {
     '--no-check-certificates'
   ];
 
-  if (platform === 'youtube') {
-    args.push('--extractor-args', 'youtube:player_client=android_creator,android,web');
-  }
-
   try {
     const raw = await executeYtDlp(args, 25000);
     const data = JSON.parse(raw);
@@ -1554,7 +1545,7 @@ async function handleStreamInfo(req, res, trackUrl, trackId, platform = 'youtube
     const cached = streamUrlCache.get(cleanId);
     if (Date.now() - cached.timestamp < 7200000) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      downloadTrackToDisk(trackUrl, cleanId, platform, meta);
+      setTimeout(() => downloadTrackToDisk(trackUrl, cleanId, platform, meta), 10000);
       return res.end(JSON.stringify(cached.data));
     }
   }
@@ -1581,9 +1572,6 @@ async function handleStreamInfo(req, res, trackUrl, trackId, platform = 'youtube
 
   try {
     const args = ['-g', '--no-warnings', '--no-playlist', '--no-check-certificates', '-f', 'bestaudio/ba/b'];
-    if (platform === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=android_creator,android,web');
-    }
     if (!isHttpUrl(trackUrl)) throw new Error('not a link');
     args.push('--', trackUrl);
     const raw = await executeYtDlp(args, 18000);
@@ -1616,7 +1604,8 @@ async function handleStreamInfo(req, res, trackUrl, trackId, platform = 'youtube
   };
 
   remember(streamUrlCache, cleanId, { timestamp: Date.now(), data });
-  downloadTrackToDisk(trackUrl, cleanId, platform, meta);
+  // let the stream get going before a second download competes with it
+  setTimeout(() => downloadTrackToDisk(trackUrl, cleanId, platform, meta), 10000);
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(data));
@@ -1984,7 +1973,7 @@ function runDownloadJob(job) {
   // the second try skips the cover and tags, which is what usually breaks
   if (job.attempts === 0) args.push('--embed-thumbnail', '--add-metadata');
   args.push('-o', path.join(dir, `${cleanArtist} - ${cleanTitle}.%(ext)s`));
-  args.push('--extractor-args', 'youtube:player_client=android_creator,android,web', '--', target);
+  args.push('--', target);
 
   const existedBefore = fs.existsSync(path.join(dir, outFilename));
   const cleanup = async () => {
