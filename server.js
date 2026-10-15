@@ -68,6 +68,7 @@ function pipeFile(stream, res) {
 }
 
 const PORT = Number(process.env.RIFFLE_PORT) || 38472;
+const MAX_BODY = 2 * 1024 * 1024;
 const { DATA_DIR, CACHE_DIR, CUSTOM_LYRICS_DIR, LYRICS_DIR, THUMBNAILS_DIR, METADATA_PATH, LIBRARY_DIR, LIBRARY_PATH, ytDlpCommand, resolveBinary } = require('./platform');
 
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -1234,7 +1235,7 @@ function executeYtDlp(args, timeoutMs = 25000) {
 
     proc.on('close', (code) => {
       if (timer) clearTimeout(timer);
-      if (code === 0 || stdout.trim().length > 0) {
+      if (code === 0) {
         resolve(stdout);
       } else {
         reject(new Error(stderr || `yt-dlp exited with code ${code}`));
@@ -2195,7 +2196,7 @@ async function handleLyrics(req, res, title, artist, allowOnline = true) {
 
 async function handleSaveCustomLyrics(req, res, title, artist) {
   let body = '';
-  req.on('data', chunk => body += chunk);
+  req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) req.destroy(); });
   req.on('end', async () => {
     try {
       const { lyrics } = JSON.parse(body);
@@ -2406,7 +2407,7 @@ const server = http.createServer(async (req, res) => {
 
   if (parsedUrl.pathname === '/api/state' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) req.destroy(); });
     req.on('end', () => {
       try {
         const state = JSON.parse(body);
@@ -2545,7 +2546,7 @@ const server = http.createServer(async (req, res) => {
 
   if (parsedUrl.pathname === '/api/spotify-config' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) req.destroy(); });
     req.on('end', async () => {
       const payload = safeJsonParse(body, {});
       const clientId = String(payload.clientId || '').trim();
@@ -2573,7 +2574,7 @@ const server = http.createServer(async (req, res) => {
 
   if (parsedUrl.pathname === '/api/vibe' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) req.destroy(); });
     req.on('end', () => {
       const payload = safeJsonParse(body, {});
       handleVibeRecommendations(req, res, payload);
@@ -2807,7 +2808,7 @@ const server = http.createServer(async (req, res) => {
 
   if (parsedUrl.pathname === '/api/library-remove' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) req.destroy(); });
     req.on('end', async () => {
       const id = String(safeJsonParse(body, {}).id || '');
       const item = libraryIndex[id];
@@ -2825,7 +2826,7 @@ const server = http.createServer(async (req, res) => {
 
   if (parsedUrl.pathname === '/api/library-update' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) req.destroy(); });
     req.on('end', () => {
       const p = safeJsonParse(body, {});
       const item = libraryIndex[String(p.id || '')];
@@ -2886,7 +2887,7 @@ const server = http.createServer(async (req, res) => {
   if (parsedUrl.pathname === '/api/track-analysis') {
     if (req.method === 'POST') {
       let body = '';
-      req.on('data', chunk => body += chunk);
+      req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) req.destroy(); });
       req.on('end', () => {
         try {
           const payload = JSON.parse(body || '{}');
