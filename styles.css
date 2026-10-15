@@ -114,7 +114,6 @@ button, .chip-btn, .mix-card, .track-row, .rail-icon-btn, .theme-mode-btn,
 .theme-swatch, .nav-item, .titlebar-btn, .format-chip, .quality-chip, .hq-preset-chip {
   touch-action: manipulation;
   transform-origin: center;
-  will-change: transform, opacity, border-radius;
   transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -122,7 +121,7 @@ button, .chip-btn, .mix-card, .track-row, .rail-icon-btn, .theme-mode-btn,
   transition: background-color var(--transition-m3), color var(--transition-m3), transform 0.15s cubic-bezier(0.2, 0, 0, 1), border-radius 0.2s cubic-bezier(0.2, 0, 0, 1), opacity var(--transition-m3), filter var(--transition-m3);
 }
 
-button:active, .chip-btn:active, .mix-card:active, .track-row:active, .rail-icon-btn:active,
+button:not(.btn-play-pause):active, .chip-btn:active, .mix-card:active, .track-row:active, .rail-icon-btn:active,
 .theme-mode-btn:active, .preset-chip:active, .btn-icon-pill:active, .btn-pill-primary:active,
 .btn-outline-pill:active, .theme-swatch:active, .nav-item:active, .titlebar-btn:active,
 .format-chip:active, .quality-chip:active, .hq-preset-chip:active {
@@ -1658,6 +1657,11 @@ body.is-playing .shape-triangle {
 
 .right-panel.lyrics-empty .right-panel-artwork-box {
   margin: auto 0;
+}
+
+/* the lyrics actions sit centered over the header when there are no lyrics */
+.right-panel.lyrics-empty #btn-lyrics-mode {
+  display: none;
 }
 
 .right-panel.lyrics-empty .lyrics-container,
@@ -3372,12 +3376,10 @@ body.is-playing .shape-triangle {
 .full-width { width: 100%; }
 
 .btn-play-pause, .btn-icon-pill, .pill-btn, button[class*="pill"] {
-  will-change: border-radius, transform;
   transform: translateZ(0);
 }
 
 button:not(select):not(.m3-dropdown-trigger):not(.m3-dropdown-option) {
-  will-change: transform, border-radius;
   transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), border-radius 0.2s cubic-bezier(0.2, 0, 0, 1), background-color var(--transition-m3) !important;
 }
 
@@ -3385,14 +3387,19 @@ button:not(select):not(.m3-dropdown-trigger):not(.m3-dropdown-option):hover,
 button:not(select):not(.m3-dropdown-trigger):not(.m3-dropdown-option):focus-visible {
   }
 
-button:not(select):not(.m3-dropdown-trigger):not(.m3-dropdown-option):active {
+button:not(select):not(.m3-dropdown-trigger):not(.m3-dropdown-option):not(.btn-play-pause):active {
   border-radius: 12px !important;
+}
+
+/* the play button already morphs between shapes, so pressing only squeezes it */
+.btn-play-pause:active,
+.btn-play-pause.pressed {
+  transform: scale(0.94);
 }
 
 button svg, button img, button i, .btn-icon-pill svg, .btn-row-fav svg, .action-btn svg, .nav-item svg, .rail-icon-btn svg {
   transform-origin: center;
   transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
-  will-change: transform;
   transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
