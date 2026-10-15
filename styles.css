@@ -5639,3 +5639,10 @@ body.resizing-panel .right-panel { transition: none !important; }
 .welcome-actions-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .welcome .dialog-actions { align-items: center; }
 .welcome [hidden] { display: none !important; }
+
+html.force-reduced-motion *, html.force-reduced-motion *::before, html.force-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

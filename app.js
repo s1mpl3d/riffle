@@ -603,7 +603,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function applyReducedMotionSetting() {
-    document.documentElement.classList.remove('force-reduced-motion');
+    document.documentElement.classList.toggle('force-reduced-motion', localStorage.getItem('riffle_reduce_motion') === 'true');
   }
 
   const PALETTE_STYLES = {
@@ -2615,6 +2615,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (queueList) {
       state.playNextPending = 0;
+      state.shuffleHistory = [];
       state.queue = [...queueList];
       if (startIndex >= 0 && startIndex < state.queue.length && isSameTrack(state.queue[startIndex], track)) {
         state.queueIndex = startIndex;
@@ -2625,9 +2626,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.queue.unshift(track);
         state.queueIndex = 0;
       }
-    } else if (!state.queue.some(t => isSameTrack(t, track))) {
-      state.queue.push(track);
-      state.queueIndex = state.queue.length - 1;
+    } else if (!isSameTrack(state.queue[state.queueIndex], track)) {
+      // already queued somewhere else: point at it, so next and previous continue from there
+      const at = state.queue.findIndex(t => isSameTrack(t, track));
+      if (at >= 0) state.queueIndex = at;
+      else {
+        state.queue.push(track);
+        state.queueIndex = state.queue.length - 1;
+      }
     }
     updateQueueBadge();
 
@@ -3346,7 +3352,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     if (state.isShuffle) {
-      const nextIdx = Math.floor(Math.random() * state.queue.length);
+      // never the same song twice in a row, and remember the way back for Previous
+      let nextIdx = Math.floor(Math.random() * state.queue.length);
+      if (state.queue.length > 1 && nextIdx === state.queueIndex) nextIdx = (nextIdx + 1 + Math.floor(Math.random() * (state.queue.length - 1))) % state.queue.length;
+      const history = state.shuffleHistory || (state.shuffleHistory = []);
+      if (state.queueIndex >= 0) history.push(state.queueIndex);
+      if (history.length > 200) history.shift();
       state.queueIndex = nextIdx;
       playTrack(state.queue[nextIdx]);
       return;
@@ -3386,6 +3397,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     if (state.queue.length === 0) return;
+    const history = state.shuffleHistory || [];
+    while (state.isShuffle && history.length) {
+      const back = history.pop();
+      if (back >= 0 && back < state.queue.length && back !== state.queueIndex) {
+        state.queueIndex = back;
+        playTrack(state.queue[back]);
+        return;
+      }
+    }
     let prevIdx = state.queueIndex - 1;
     if (prevIdx < 0) prevIdx = state.queue.length - 1;
     state.queueIndex = prevIdx;
@@ -3869,13 +3889,13 @@ document.addEventListener('DOMContentLoaded', async () => {
               currentList = pl.tracks;
               clickIndex = pl.tracks.findIndex(t => isSameTrack(t, track));
             }
-          } else if (row.parentElement) {
+          } else if (context === 'queue' && row.parentElement) {
+            // the queue can be reordered by dragging without a re-render, so its DOM order is the truth
             const rows = Array.from(row.parentElement.querySelectorAll('.track-row'));
             const domPos = rows.indexOf(row);
             // rows are virtualized: DOM position is relative to the first rendered row
             if (domPos !== -1) clickIndex = domPos + Math.max(0, row.parentElement._lastStartIndex || 0);
-            // the queue can be reordered in place; always play from the live array
-            if (context === 'queue') currentList = state.queue;
+            currentList = state.queue;
           }
           if (context === 'search' && el.searchInput) rememberSearch(el.searchInput.value);
           playTrack(track, currentList, clickIndex >= 0 ? clickIndex : idx, context);
@@ -3958,11 +3978,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!tracks || tracks.length === 0) {
       container.style.paddingTop = '0px';
       container.style.paddingBottom = '0px';
-      container.innerHTML = `<div class="empty-hint">${tr('no tracks found.')}</div>`;
+      const empty = {
+        favorites: tr('No favorite tracks yet. Click the heart icon on any song to save it.'),
+        history: tr('No recently played tracks.'),
+        queue: tr('Queue is empty. Play a track to start.'),
+        playlist: tr('This playlist is empty. Add songs from their menu, or import a playlist.'),
+        artist: tr('No songs found for this artist.')
+      }[context] || tr('No songs found.');
+      container.innerHTML = `<div class="empty-hint">${escapeHtml(empty)}</div>`;
       return;
     }
 
-    const itemHeight = 68;
+    // rows are measured once, so the spacer heights match even with a different font or UI scale
+    let itemHeight = container._rowHeight || 68;
     const overscan = 15;
     
     function renderChunk() {
@@ -3999,6 +4027,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       container.style.paddingBottom = `${(tracks.length - endIndex) * itemHeight}px`;
       container.appendChild(fragment);
       container._hasInitialRendered = true;
+      const rows = container.children;
+      if (rows.length > 1 && rows[1].offsetTop > rows[0].offsetTop) {
+        const measured = rows[1].offsetTop - rows[0].offsetTop;
+        if (Math.abs(measured - itemHeight) > 0.5) {
+          itemHeight = container._rowHeight = measured;
+          container._lastStartIndex = -1;
+          return renderChunk();
+        }
+      }
       highlightPlayingRow();
     }
     
@@ -9223,6 +9260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       { value: 'full', label: tr('Names and icons') }, { value: 'icons', label: tr('Icons only') }, { value: 'hidden', label: tr('Hidden') }
     ], sources, setSources);
   }
+  bindLocalSwitch('btn-reduce-motion', 'riffle_reduce_motion', false, () => applyReducedMotionSetting());
   bindLocalSwitch('btn-highlight-buttons', 'riffle_highlight_buttons', false, (on) => document.body.classList.toggle('highlight-buttons', on));
   bindLocalSwitch('btn-bar-visualizer', 'riffle_bar_visualizer', true, (on) => {
     uiFlags.noBarViz = !on;
